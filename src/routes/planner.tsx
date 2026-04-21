@@ -196,12 +196,21 @@ function PlannerCell({
 
   const overUtil = utilPct > 100;
   const goodUtil = utilPct > 0 && utilPct <= 100;
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
   return (
     <button
       type="button"
       onClick={() => {
-        if (isHoliday || !isWork) return;
+        if (isHoliday) {
+          toast.error("That day is a public holiday — no leave needed.");
+          return;
+        }
+        if (isWeekend && !isWork) {
+          toast.error("Weekends are non-working days — no leave needed.");
+          return;
+        }
+        if (!isWork) return;
         if (isLeave) removeLeave.mutate();
         else addLeave.mutate();
       }}
