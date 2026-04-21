@@ -110,7 +110,7 @@ function Planner() {
                 <div className="p-3">
                   <p className="text-sm font-medium">{s.name}</p>
                   <p className="text-[11px] text-muted-foreground tabular-nums">
-                    {wkPlanned.toFixed(1)}h planned · {wkCommitted.toFixed(1)}h actual
+                    {wkPlanned.toFixed(1)}h planned · {wkCommitted.toFixed(1)}h committed
                   </p>
                 </div>
                 {days.map((d) => {
