@@ -112,7 +112,7 @@ function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Team dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Planned vs actual vs logged for the selected week.
+            Planned vs committed vs logged for the selected week.
           </p>
         </div>
         <WeekSelector value={weekDate} onChange={setWeekDate} />
@@ -124,7 +124,7 @@ function Dashboard() {
             <TableRow>
               <TableHead className="w-[180px]">Staff</TableHead>
               <TableHead className="text-right">Planned</TableHead>
-              <TableHead className="text-right">Actual</TableHead>
+              <TableHead className="text-right">Committed</TableHead>
               <TableHead className="text-right">Logged</TableHead>
               <TableHead className="text-right">Projected</TableHead>
               <TableHead className="text-right">Actual</TableHead>

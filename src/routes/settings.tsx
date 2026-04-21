@@ -2,22 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
+import { ymd } from "@/lib/dates";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Tempo" }] }),
@@ -30,18 +31,18 @@ function Settings() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Manage staff, clients, projects, and public holidays.
+          Manage staff, clients, and public holidays.
         </p>
       </div>
       <Tabs defaultValue="staff">
         <TabsList>
           <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="clients">Clients</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
+          <TabsTrigger value="holidays">Public holidays</TabsTrigger>
         </TabsList>
         <TabsContent value="staff" className="mt-4"><StaffSection /></TabsContent>
         <TabsContent value="clients" className="mt-4"><ClientsSection /></TabsContent>
-        <TabsContent value="projects" className="mt-4"><ProjectsSection /></TabsContent>
+        <TabsContent value="holidays" className="mt-4"><HolidaysSection /></TabsContent>
       </Tabs>
     </main>
   );
@@ -172,68 +173,89 @@ function ClientsSection() {
   );
 }
 
-function ProjectsSection() {
+function HolidaysSection() {
   const qc = useQueryClient();
-  const clientsQ = useQuery({ queryKey: qk.clients, queryFn: api.listClients });
-  const q = useQuery({ queryKey: qk.projects, queryFn: api.listProjects });
+  const q = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
+  const [date, setDate] = useState<Date | undefined>();
   const [name, setName] = useState("");
-  const [clientId, setClientId] = useState("");
 
   const create = useMutation({
-    mutationFn: () => api.createProject({ client_id: clientId, name: name.trim() }),
+    mutationFn: () =>
+      api.createHoliday({ holiday_date: ymd(date!), name: name.trim() }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.projects });
+      qc.invalidateQueries({ queryKey: qk.holidays });
+      toast.success("Holiday added");
+      setDate(undefined);
       setName("");
-      toast.success("Project added");
     },
     onError: (e: Error) => toast.error(e.message),
   });
   const remove = useMutation({
-    mutationFn: (id: string) => api.deleteProject(id),
+    mutationFn: (id: string) => api.deleteHoliday(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.projects });
-      qc.invalidateQueries({ queryKey: qk.tasks });
+      qc.invalidateQueries({ queryKey: qk.holidays });
+      toast.success("Holiday removed");
     },
   });
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Projects</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-base">Public holidays</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <Select value={clientId} onValueChange={setClientId}>
-            <SelectTrigger><SelectValue placeholder="Client" /></SelectTrigger>
-            <SelectContent>
-              {(clientsQ.data ?? []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" />
-          <Button onClick={() => create.mutate()} disabled={!clientId || !name.trim()}>
-            <Plus className="mr-1 h-4 w-4" /> Add
-          </Button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[180px_1fr_auto]">
+          <div>
+            <Label className="text-xs">Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP") : "Pick"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label className="text-xs">Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Labor Day" />
+          </div>
+          <div className="flex items-end">
+            <Button
+              onClick={() => create.mutate()}
+              disabled={!date || !name.trim() || create.isPending}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add
+            </Button>
+          </div>
         </div>
         <ul className="divide-y divide-border rounded-md border border-border">
           {(q.data ?? []).length === 0 && (
-            <li className="p-4 text-center text-sm text-muted-foreground">No projects yet.</li>
+            <li className="p-4 text-center text-sm text-muted-foreground">No holidays yet.</li>
           )}
-          {(q.data ?? []).map((p) => {
-            const client = (clientsQ.data ?? []).find((c) => c.id === p.client_id);
-            return (
-              <li key={p.id} className="flex items-center justify-between p-3">
-                <div>
-                  <p className="text-sm font-medium">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{client?.name}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => {
-                  if (confirm(`Delete ${p.name}? This removes its tasks.`)) remove.mutate(p.id);
-                }}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </li>
-            );
-          })}
+          {(q.data ?? []).map((h) => (
+            <li key={h.id} className="flex items-center justify-between p-3">
+              <div>
+                <p className="text-sm font-medium">{h.name}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {format(new Date(h.holiday_date), "EEE, MMM d, yyyy")}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => {
+                if (confirm(`Remove ${h.name}?`)) remove.mutate(h.id);
+              }}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </li>
+          ))}
         </ul>
       </CardContent>
     </Card>
