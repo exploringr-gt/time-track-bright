@@ -70,7 +70,10 @@ export const api = {
     description: string;
     estimated_hours?: number;
     status?: Task["status"];
+    start_date?: string | null;
     due_date?: string | null;
+    actual_start_date?: string | null;
+    actual_end_date?: string | null;
   }) =>
     unwrap<Task[]>(
       supabase.from("tasks").insert(input).select() as never,

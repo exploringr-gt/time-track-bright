@@ -149,6 +149,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          actual_end_date: string | null
+          actual_start_date: string | null
           completed_at: string | null
           created_at: string
           description: string
@@ -157,10 +159,13 @@ export type Database = {
           id: string
           project_id: string
           staff_id: string
+          start_date: string | null
           status: Database["public"]["Enums"]["task_status"]
           updated_at: string
         }
         Insert: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
           completed_at?: string | null
           created_at?: string
           description: string
@@ -169,10 +174,13 @@ export type Database = {
           id?: string
           project_id: string
           staff_id: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
         }
         Update: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
           completed_at?: string | null
           created_at?: string
           description?: string
@@ -181,6 +189,7 @@ export type Database = {
           id?: string
           project_id?: string
           staff_id?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
         }

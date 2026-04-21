@@ -98,3 +98,85 @@ export function pct(num: number, den: number): number {
   if (den <= 0) return 0;
   return Math.round((num / den) * 100);
 }
+
+/**
+ * Spread a task's estimated hours evenly across the staff's working days
+ * between start_date and due_date, capped at the staff's daily target.
+ * Skips weekends, public holidays, and the staff member's leave days.
+ *
+ * Returns a Map keyed by yyyy-MM-dd → hours scheduled for that day.
+ */
+export function spreadTaskHours(
+  task: Task,
+  staff: Staff,
+  holidays: PublicHoliday[],
+  leave: LeaveDay[],
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!task.start_date || !task.due_date) return out;
+  const startD = new Date(task.start_date);
+  const endD = new Date(task.due_date);
+  if (endD < startD) return out;
+
+  const days = workingDaysInRange(staff, startD, endD, holidays, leave).filter(
+    (d) => d.hours > 0,
+  );
+  if (days.length === 0) return out;
+
+  const dailyCap =
+    staff.working_days.length > 0
+      ? staff.weekly_target_hours / staff.working_days.length
+      : 0;
+
+  let remaining = Number(task.estimated_hours) || 0;
+  const even = remaining / days.length;
+  const perDay = Math.min(even, dailyCap);
+
+  for (const d of days) {
+    if (remaining <= 0) break;
+    const hrs = Math.min(perDay, remaining);
+    out.set(ymd(d.date), hrs);
+    remaining -= hrs;
+  }
+
+  // If estimate exceeded capacity, distribute leftover (still capped) day by day.
+  if (remaining > 0) {
+    for (const d of days) {
+      if (remaining <= 0) break;
+      const k = ymd(d.date);
+      const cur = out.get(k) ?? 0;
+      const room = Math.max(dailyCap - cur, 0);
+      const add = Math.min(room, remaining);
+      if (add > 0) {
+        out.set(k, cur + add);
+        remaining -= add;
+      }
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Validate a task boundary date for a given staff member.
+ * Returns an error message, or null if valid.
+ */
+export function validateTaskBoundary(
+  date: string,
+  staff: Staff,
+  holidays: PublicHoliday[],
+  leave: LeaveDay[],
+): string | null {
+  const d = new Date(date);
+  const dow = d.getDay();
+  if (!staff.working_days.includes(dow)) {
+    return "That date is not a working day for this staff member.";
+  }
+  if (holidays.some((h) => h.holiday_date === date)) {
+    return "That date is a public holiday.";
+  }
+  if (leave.some((l) => l.staff_id === staff.id && l.leave_date === date)) {
+    return "That date is a leave day for this staff member.";
+  }
+  return null;
+}
