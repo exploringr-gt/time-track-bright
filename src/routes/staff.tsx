@@ -552,16 +552,30 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
             <Label>Description</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
+          <div>
+            <Label>Estimated hours</Label>
+            <Input
+              type="number"
+              step="0.25"
+              min="0"
+              value={estimate}
+              onChange={(e) => setEstimate(e.target.value)}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Estimated hours</Label>
-              <Input
-                type="number"
-                step="0.25"
-                min="0"
-                value={estimate}
-                onChange={(e) => setEstimate(e.target.value)}
-              />
+              <Label>Start date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start", !startDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP") : "Pick"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Due date</Label>
