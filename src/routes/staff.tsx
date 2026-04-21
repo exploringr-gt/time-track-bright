@@ -729,3 +729,337 @@ function LogTimeDialog({
     </Dialog>
   );
 }
+
+function EditTaskDialog({
+  task,
+  me,
+  holidays,
+  leave,
+  logs,
+}: {
+  task: Task;
+  me: import("@/lib/types").Staff;
+  holidays: import("@/lib/types").PublicHoliday[];
+  leave: import("@/lib/types").LeaveDay[];
+  logs: import("@/lib/types").TimeLog[];
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  // Derive defaults from logs for actual dates if none set yet.
+  const taskLogs = logs.filter((l) => l.task_id === task.id);
+  const sortedDates = taskLogs.map((l) => l.log_date).sort();
+  const derivedActualStart = sortedDates[0] ?? null;
+  const derivedActualEnd = sortedDates[sortedDates.length - 1] ?? null;
+
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    task.start_date ? new Date(task.start_date) : undefined,
+  );
+  const [dueDate, setDueDate] = useState<Date | undefined>(
+    task.due_date ? new Date(task.due_date) : undefined,
+  );
+  const [actualStart, setActualStart] = useState<Date | undefined>(
+    task.actual_start_date
+      ? new Date(task.actual_start_date)
+      : derivedActualStart
+        ? new Date(derivedActualStart)
+        : undefined,
+  );
+  const [actualEnd, setActualEnd] = useState<Date | undefined>(
+    task.actual_end_date
+      ? new Date(task.actual_end_date)
+      : derivedActualEnd
+        ? new Date(derivedActualEnd)
+        : undefined,
+  );
+  const [estimate, setEstimate] = useState(String(task.estimated_hours ?? 0));
+
+  const save = useMutation({
+    mutationFn: async () => {
+      // Validate planned boundaries against working calendar
+      if (startDate) {
+        const err = validateTaskBoundary(ymd(startDate), me, holidays, leave);
+        if (err) throw new Error(`Start date: ${err}`);
+      }
+      if (dueDate) {
+        const err = validateTaskBoundary(ymd(dueDate), me, holidays, leave);
+        if (err) throw new Error(`Due date: ${err}`);
+      }
+      if (startDate && dueDate && startDate > dueDate) {
+        throw new Error("Start date must be on or before due date.");
+      }
+      if (actualStart && actualEnd && actualStart > actualEnd) {
+        throw new Error("Actual start must be on or before actual end.");
+      }
+      return api.updateTask(task.id, {
+        estimated_hours: Number(estimate) || 0,
+        start_date: startDate ? ymd(startDate) : null,
+        due_date: dueDate ? ymd(dueDate) : null,
+        actual_start_date: actualStart ? ymd(actualStart) : null,
+        actual_end_date: actualEnd ? ymd(actualEnd) : null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.tasks });
+      toast.success("Task updated");
+      setOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" title="Edit task">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit task — {task.description}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <div>
+            <Label>Estimated hours</Label>
+            <Input
+              type="number"
+              step="0.25"
+              min="0"
+              value={estimate}
+              onChange={(e) => setEstimate(e.target.value)}
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Planned span
+            </p>
+            <div className="mt-1 grid grid-cols-2 gap-3">
+              <DateField label="Start date" value={startDate} onChange={setStartDate} />
+              <DateField label="Due date" value={dueDate} onChange={setDueDate} />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Actual span
+              <span className="ml-1 font-normal normal-case text-muted-foreground">
+                (prefilled from logs)
+              </span>
+            </p>
+            <div className="mt-1 grid grid-cols-2 gap-3">
+              <DateField label="Actual start" value={actualStart} onChange={setActualStart} />
+              <DateField label="Actual end" value={actualEnd} onChange={setActualEnd} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Date | undefined;
+  onChange: (d: Date | undefined) => void;
+}) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn("w-full justify-start", !value && "text-muted-foreground")}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {value ? format(value, "PPP") : "Pick"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={onChange}
+            initialFocus
+            className="p-3 pointer-events-auto"
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function TaskTimeline({
+  tasks,
+  logs,
+  clients,
+  projects,
+  holidays,
+  leave,
+  me,
+}: {
+  tasks: Task[];
+  logs: import("@/lib/types").TimeLog[];
+  clients: import("@/lib/types").Client[];
+  projects: import("@/lib/types").Project[];
+  holidays: import("@/lib/types").PublicHoliday[];
+  leave: import("@/lib/types").LeaveDay[];
+  me: import("@/lib/types").Staff | null;
+}) {
+  // Filter to tasks with at least a planned or actual span.
+  const visible = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.start_date || t.due_date || t.actual_start_date || t.actual_end_date)
+        .sort((a, b) => {
+          const aS = a.start_date ?? a.actual_start_date ?? "";
+          const bS = b.start_date ?? b.actual_start_date ?? "";
+          return aS.localeCompare(bS);
+        }),
+    [tasks],
+  );
+
+  // Compute global span across all visible tasks for the bar scale.
+  const range = useMemo(() => {
+    const all: string[] = [];
+    visible.forEach((t) => {
+      if (t.start_date) all.push(t.start_date);
+      if (t.due_date) all.push(t.due_date);
+      if (t.actual_start_date) all.push(t.actual_start_date);
+      if (t.actual_end_date) all.push(t.actual_end_date);
+    });
+    if (all.length === 0) return null;
+    all.sort();
+    const min = new Date(all[0]);
+    const max = new Date(all[all.length - 1]);
+    const totalDays = Math.max(differenceInCalendarDays(max, min) + 1, 1);
+    return { min, max, totalDays };
+  }, [visible]);
+
+  if (visible.length === 0 || !range) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          No tasks have planned or actual dates yet. Add a start &amp; due date in the New / Edit task dialog.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function pctFromStart(d: Date) {
+    return (differenceInCalendarDays(d, range!.min) / range!.totalDays) * 100;
+  }
+  function pctWidth(a: Date, b: Date) {
+    return ((differenceInCalendarDays(b, a) + 1) / range!.totalDays) * 100;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Task timeline — planned vs actual</CardTitle>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {format(range.min, "MMM d, yyyy")} – {format(range.max, "MMM d, yyyy")}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {visible.map((t) => {
+            const project = projects.find((p) => p.id === t.project_id);
+            const client = project ? clients.find((c) => c.id === project.client_id) : null;
+            const planned =
+              t.start_date && t.due_date
+                ? { start: new Date(t.start_date), end: new Date(t.due_date) }
+                : null;
+            const actual =
+              t.actual_start_date && t.actual_end_date
+                ? {
+                    start: new Date(t.actual_start_date),
+                    end: new Date(t.actual_end_date),
+                  }
+                : null;
+
+            const spread = me && planned ? spreadTaskHours(t, me, holidays, leave) : new Map();
+            const totalSpread = Array.from(spread.values()).reduce(
+              (s: number, n) => s + (n as number),
+              0,
+            );
+            const dailyAvg =
+              spread.size > 0 ? totalSpread / spread.size : 0;
+            const logged = loggedHoursForTask(t.id, logs);
+
+            return (
+              <div key={t.id} className="rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{t.description}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {client?.name ?? "?"} · {project?.name ?? "?"}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground tabular-nums">
+                    {Number(t.estimated_hours).toFixed(1)}h est ·{" "}
+                    {logged.toFixed(1)}h logged
+                    {planned && spread.size > 0 && (
+                      <>
+                        {" · "}~{dailyAvg.toFixed(1)}h/day over {spread.size}d
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                <div className="relative mt-3 h-7 w-full rounded bg-muted/40">
+                  {planned && (
+                    <div
+                      className="absolute top-0 h-3 rounded bg-primary/40"
+                      style={{
+                        left: `${pctFromStart(planned.start)}%`,
+                        width: `${pctWidth(planned.start, planned.end)}%`,
+                      }}
+                      title={`Planned: ${format(planned.start, "MMM d")} – ${format(planned.end, "MMM d")}`}
+                    />
+                  )}
+                  {actual && (
+                    <div
+                      className="absolute bottom-0 h-3 rounded bg-util-good/70"
+                      style={{
+                        left: `${pctFromStart(actual.start)}%`,
+                        width: `${pctWidth(actual.start, actual.end)}%`,
+                      }}
+                      title={`Actual: ${format(actual.start, "MMM d")} – ${format(actual.end, "MMM d")}`}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-3 rounded bg-primary/40" />
+                    Planned{" "}
+                    {planned
+                      ? `${format(planned.start, "MMM d")} → ${format(planned.end, "MMM d")}`
+                      : "—"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-3 rounded bg-util-good/70" />
+                    Actual{" "}
+                    {actual
+                      ? `${format(actual.start, "MMM d")} → ${format(actual.end, "MMM d")}`
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
