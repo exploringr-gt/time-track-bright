@@ -426,7 +426,6 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState<string>("");
-  const [projectId, setProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [estimate, setEstimate] = useState("1");
   const [dueDate, setDueDate] = useState<Date | undefined>();
@@ -435,21 +434,28 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
   const clientsQ = useQuery({ queryKey: qk.clients, queryFn: api.listClients });
   const projectsQ = useQuery({ queryKey: qk.projects, queryFn: api.listProjects });
 
-  const projectsForClient = useMemo(
-    () => (projectsQ.data ?? []).filter((p) => p.client_id === clientId),
-    [projectsQ.data, clientId],
-  );
+  // Resolve (or create) a default project for the selected client.
+  async function resolveProjectId(): Promise<string> {
+    const all = projectsQ.data ?? [];
+    const existing = all.find((p) => p.client_id === clientId);
+    if (existing) return existing.id;
+    const created = await api.createProject({ client_id: clientId, name: "General" });
+    qc.invalidateQueries({ queryKey: qk.projects });
+    return created[0].id;
+  }
 
   const create = useMutation({
-    mutationFn: () =>
-      api.createTask({
+    mutationFn: async () => {
+      const projectId = await resolveProjectId();
+      return api.createTask({
         staff_id: meStaffId,
         project_id: projectId,
         description,
         estimated_hours: Number(estimate) || 0,
         status,
         due_date: dueDate ? ymd(dueDate) : null,
-      }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.tasks });
       toast.success("Task added");
@@ -475,29 +481,16 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
           <DialogTitle>New task</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Client</Label>
-              <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {(clientsQ.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={setProjectId} disabled={!clientId}>
-                <SelectTrigger><SelectValue placeholder={clientId ? "Select" : "Pick client first"} /></SelectTrigger>
-                <SelectContent>
-                  {projectsForClient.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Client</Label>
+            <Select value={clientId} onValueChange={setClientId}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {(clientsQ.data ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Description</Label>
