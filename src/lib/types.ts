@@ -54,7 +54,10 @@ export interface Task {
   description: string;
   estimated_hours: number;
   status: TaskStatus;
+  start_date: string | null;
   due_date: string | null;
+  actual_start_date: string | null;
+  actual_end_date: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
