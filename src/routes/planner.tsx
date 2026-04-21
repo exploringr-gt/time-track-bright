@@ -196,12 +196,21 @@ function PlannerCell({
 
   const overUtil = utilPct > 100;
   const goodUtil = utilPct > 0 && utilPct <= 100;
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
   return (
     <button
       type="button"
       onClick={() => {
-        if (isHoliday || !isWork) return;
+        if (isHoliday) {
+          toast.error("That day is a public holiday — no leave needed.");
+          return;
+        }
+        if (isWeekend && !isWork) {
+          toast.error("Weekends are non-working days — no leave needed.");
+          return;
+        }
+        if (!isWork) return;
         if (isLeave) removeLeave.mutate();
         else addLeave.mutate();
       }}
@@ -333,13 +342,26 @@ function AddLeaveDialog({ staff }: { staff: import("@/lib/types").Staff[] }) {
   const [date, setDate] = useState<Date | undefined>();
   const [reason, setReason] = useState("");
 
+  const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
+
   const create = useMutation({
-    mutationFn: () =>
-      api.createLeave({
+    mutationFn: () => {
+      if (!date) throw new Error("Pick a date");
+      const dow = date.getDay();
+      if (dow === 0 || dow === 6) {
+        throw new Error("Leave can't fall on a weekend.");
+      }
+      const key = ymd(date);
+      const isHoliday = (holidaysQ.data ?? []).some((h) => h.holiday_date === key);
+      if (isHoliday) {
+        throw new Error("That day is already a public holiday.");
+      }
+      return api.createLeave({
         staff_id: staffId,
-        leave_date: ymd(date!),
+        leave_date: key,
         reason: reason || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.leave });
       toast.success("Leave added");
