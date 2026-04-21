@@ -462,11 +462,17 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
   const [clientId, setClientId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [estimate, setEstimate] = useState("1");
+  const [startDate, setStartDate] = useState<Date | undefined>();
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [status, setStatus] = useState<TaskStatus>("not_started");
 
   const clientsQ = useQuery({ queryKey: qk.clients, queryFn: api.listClients });
   const projectsQ = useQuery({ queryKey: qk.projects, queryFn: api.listProjects });
+  const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
+  const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
+  const leaveQ = useQuery({ queryKey: qk.leave, queryFn: api.listLeave });
+
+  const me = (staffQ.data ?? []).find((s) => s.id === meStaffId) ?? null;
 
   // Resolve (or create) a default project for the selected client.
   async function resolveProjectId(): Promise<string> {
@@ -480,6 +486,20 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
 
   const create = useMutation({
     mutationFn: async () => {
+      // Validate dates
+      if (me) {
+        if (startDate) {
+          const err = validateTaskBoundary(ymd(startDate), me, holidaysQ.data ?? [], leaveQ.data ?? []);
+          if (err) throw new Error(`Start date: ${err}`);
+        }
+        if (dueDate) {
+          const err = validateTaskBoundary(ymd(dueDate), me, holidaysQ.data ?? [], leaveQ.data ?? []);
+          if (err) throw new Error(`Due date: ${err}`);
+        }
+      }
+      if (startDate && dueDate && startDate > dueDate) {
+        throw new Error("Start date must be on or before due date.");
+      }
       const projectId = await resolveProjectId();
       return api.createTask({
         staff_id: meStaffId,
@@ -487,6 +507,7 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
         description,
         estimated_hours: Number(estimate) || 0,
         status,
+        start_date: startDate ? ymd(startDate) : null,
         due_date: dueDate ? ymd(dueDate) : null,
       });
     },
@@ -496,6 +517,7 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
       setOpen(false);
       setDescription("");
       setEstimate("1");
+      setStartDate(undefined);
       setDueDate(undefined);
       setStatus("not_started");
     },
