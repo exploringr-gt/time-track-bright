@@ -426,6 +426,15 @@ function TaskList({
                   </SelectContent>
                 </Select>
                 <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
+                {me && (
+                  <EditTaskDialog
+                    task={t}
+                    me={me}
+                    holidays={holidays}
+                    leave={leave}
+                    logs={logs}
+                  />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
