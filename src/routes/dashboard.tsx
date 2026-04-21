@@ -18,7 +18,7 @@ import {
   pct,
   plannedHours,
 } from "@/lib/calc";
-import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
+import { daysInWeek, fmt, shiftWeek, weekRange, ymd } from "@/lib/dates";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -271,7 +271,6 @@ function DailyDrillDown({
   projects: import("@/lib/types").Project[];
   clients: import("@/lib/types").Client[];
 }) {
-  const days = daysInWeek(weekDate);
   const dailyHours =
     staff.working_days.length > 0
       ? staff.weekly_target_hours / staff.working_days.length
@@ -281,56 +280,79 @@ function DailyDrillDown({
     leave.filter((l) => l.staff_id === staff.id).map((l) => l.leave_date),
   );
 
-  return (
-    <div className="p-4 space-y-3">
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((d) => {
-          const k = ymd(d);
-          const isWork = staff.working_days.includes(d.getDay());
-          const isHol = holidaySet.has(k);
-          const isLeave = leaveSet.has(k);
-          const planned = isWork && !isHol && !isLeave ? dailyHours : 0;
-          const dayLogs = logs.filter((l) => l.staff_id === staff.id && l.log_date === k);
-          const logged = dayLogs.reduce((s, l) => s + Number(l.hours), 0);
-          const dayPct = pct(logged, planned);
+  const weeks = [
+    { offset: -1, label: "Last week" },
+    { offset: 0, label: "This week" },
+    { offset: 1, label: "Next week" },
+  ];
 
-          return (
-            <div key={k} className="rounded-md border border-border bg-card p-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                {fmt(d, "EEE d")}
+  return (
+    <div className="p-4 space-y-5">
+      {weeks.map(({ offset, label }) => {
+        const anchor = shiftWeek(weekDate, offset);
+        const days = daysInWeek(anchor);
+        const { start, end } = weekRange(anchor);
+        return (
+          <div key={offset} className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {label}
               </p>
-              {isHol && <p className="mt-1 text-xs font-medium text-status-on-hold">Holiday</p>}
-              {isLeave && <p className="mt-1 text-xs font-medium text-status-on-hold">Leave</p>}
-              {!isWork && !isHol && !isLeave && (
-                <p className="mt-1 text-xs text-muted-foreground">Off</p>
-              )}
-              {isWork && !isHol && !isLeave && (
-                <>
-                  <p className="mt-1 text-sm font-semibold tabular-nums">
-                    {logged.toFixed(1)}/{planned.toFixed(1)}h
-                  </p>
-                  <div className="mt-1">
-                    <UtilCell pct={dayPct} />
-                  </div>
-                </>
-              )}
-              <ul className="mt-2 space-y-1">
-                {dayLogs.map((l) => {
-                  const t = tasks.find((tk) => tk.id === l.task_id);
-                  const proj = t ? projects.find((p) => p.id === t.project_id) : null;
-                  const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
-                  return (
-                    <li key={l.id} className="text-[11px] leading-tight text-muted-foreground">
-                      <span className="font-medium text-foreground tabular-nums">{Number(l.hours).toFixed(1)}h</span>{" "}
-                      {cli?.name} · {t?.description}
-                    </li>
-                  );
-                })}
-              </ul>
+              <p className="text-[10px] text-muted-foreground">
+                {fmt(start, "MMM d")} – {fmt(end, "MMM d")}
+              </p>
             </div>
-          );
-        })}
-      </div>
+            <div className="grid grid-cols-7 gap-2">
+              {days.map((d) => {
+                const k = ymd(d);
+                const isWork = staff.working_days.includes(d.getDay());
+                const isHol = holidaySet.has(k);
+                const isLeave = leaveSet.has(k);
+                const planned = isWork && !isHol && !isLeave ? dailyHours : 0;
+                const dayLogs = logs.filter((l) => l.staff_id === staff.id && l.log_date === k);
+                const logged = dayLogs.reduce((s, l) => s + Number(l.hours), 0);
+                const dayPct = pct(logged, planned);
+
+                return (
+                  <div key={k} className="rounded-md border border-border bg-card p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {fmt(d, "EEE d")}
+                    </p>
+                    {isHol && <p className="mt-1 text-xs font-medium text-status-on-hold">Holiday</p>}
+                    {isLeave && <p className="mt-1 text-xs font-medium text-status-on-hold">Leave</p>}
+                    {!isWork && !isHol && !isLeave && (
+                      <p className="mt-1 text-xs text-muted-foreground">Off</p>
+                    )}
+                    {isWork && !isHol && !isLeave && (
+                      <>
+                        <p className="mt-1 text-sm font-semibold tabular-nums">
+                          {logged.toFixed(1)}/{planned.toFixed(1)}h
+                        </p>
+                        <div className="mt-1">
+                          <UtilCell pct={dayPct} />
+                        </div>
+                      </>
+                    )}
+                    <ul className="mt-2 space-y-1">
+                      {dayLogs.map((l) => {
+                        const t = tasks.find((tk) => tk.id === l.task_id);
+                        const proj = t ? projects.find((p) => p.id === t.project_id) : null;
+                        const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
+                        return (
+                          <li key={l.id} className="text-[11px] leading-tight text-muted-foreground">
+                            <span className="font-medium text-foreground tabular-nums">{Number(l.hours).toFixed(1)}h</span>{" "}
+                            {cli?.name} · {t?.description}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
