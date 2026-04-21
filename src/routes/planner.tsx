@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  startOfMonth,
+} from "date-fns";
+import { CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import { committedHours, plannedHours, pct } from "@/lib/calc";
@@ -35,6 +41,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/planner")({
@@ -43,8 +50,36 @@ export const Route = createFileRoute("/planner")({
 });
 
 function Planner() {
-  const [weekDate, setWeekDate] = useState(new Date());
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
+  const staff = staffQ.data ?? [];
+
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Planner</h1>
+        <p className="text-sm text-muted-foreground">
+          Capacity, leave, and holidays.
+        </p>
+      </div>
+
+      <Tabs defaultValue="week">
+        <TabsList>
+          <TabsTrigger value="week">Weekly grid</TabsTrigger>
+          <TabsTrigger value="month">Monthly leave & holidays</TabsTrigger>
+        </TabsList>
+        <TabsContent value="week" className="mt-4">
+          <WeeklyGrid staff={staff} />
+        </TabsContent>
+        <TabsContent value="month" className="mt-4">
+          <MonthlyView staff={staff} />
+        </TabsContent>
+      </Tabs>
+    </main>
+  );
+}
+
+function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
+  const [weekDate, setWeekDate] = useState(new Date());
   const tasksQ = useQuery({ queryKey: qk.tasks, queryFn: api.listTasks });
   const logsQ = useQuery({ queryKey: qk.timeLogs, queryFn: api.listTimeLogs });
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
@@ -52,7 +87,6 @@ function Planner() {
 
   const days = daysInWeek(weekDate);
   const { start, end } = weekRange(weekDate);
-  const staff = staffQ.data ?? [];
   const holidays = holidaysQ.data ?? [];
   const leave = leaveQ.data ?? [];
   const logs = logsQ.data ?? [];
@@ -61,19 +95,10 @@ function Planner() {
   const holidayMap = new Map(holidays.map((h) => [h.holiday_date, h]));
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Planner</h1>
-          <p className="text-sm text-muted-foreground">
-            Capacity, leave, and holidays by day.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <WeekSelector value={weekDate} onChange={setWeekDate} />
-          <AddHolidayDialog />
-          <AddLeaveDialog staff={staff} />
-        </div>
+    <>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <WeekSelector value={weekDate} onChange={setWeekDate} />
+        <AddLeaveDialog staff={staff} />
       </div>
 
       <Card className="overflow-x-auto">
@@ -151,7 +176,7 @@ function Planner() {
           )}
         </div>
       </Card>
-    </main>
+    </>
   );
 }
 
@@ -242,106 +267,226 @@ function PlannerCell({
   );
 }
 
-function AddHolidayDialog() {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState<Date | undefined>();
-  const [name, setName] = useState("");
+function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
+  const [month, setMonth] = useState(startOfMonth(new Date()));
+  const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
+  const leaveQ = useQuery({ queryKey: qk.leave, queryFn: api.listLeave });
 
-  const create = useMutation({
-    mutationFn: () =>
-      api.createHoliday({ holiday_date: ymd(date!), name }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.holidays });
-      toast.success("Holiday added");
-      setOpen(false);
-      setName("");
-      setDate(undefined);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteHoliday(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.holidays }),
-  });
+  // Keep a sane default once staff loads
+  if (!staffId && staff.length > 0) {
+    setStaffId(staff[0].id);
+  }
+
+  const me = staff.find((s) => s.id === staffId) ?? null;
+  const holidays = holidaysQ.data ?? [];
+  const leave = leaveQ.data ?? [];
+
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+  const days = useMemo(
+    () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
+    [monthStart, monthEnd],
+  );
+
+  // Pad the grid so the first row aligns with weekday columns (Mon-start)
+  const leadingBlanks = (monthStart.getDay() + 6) % 7; // Mon=0..Sun=6
+
+  const myLeave = me ? leave.filter((l) => l.staff_id === me.id) : [];
+  const monthLeave = myLeave.filter(
+    (l) => l.leave_date >= ymd(monthStart) && l.leave_date <= ymd(monthEnd),
+  );
+  const monthHolidays = holidays.filter(
+    (h) => h.holiday_date >= ymd(monthStart) && h.holiday_date <= ymd(monthEnd),
+  );
+
+  const holidayMap = new Map(holidays.map((h) => [h.holiday_date, h]));
+  const leaveMap = new Map(myLeave.map((l) => [l.leave_date, l]));
+
+  if (staff.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          No staff yet.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-1 h-4 w-4" /> Holiday
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Public holidays</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : "Pick"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Labor Day" />
-            </div>
-          </div>
-          <Button onClick={() => create.mutate()} disabled={!date || !name}>
-            Add holiday
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={staffId} onValueChange={setStaffId}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Pick staff" />
+          </SelectTrigger>
+          <SelectContent>
+            {staff.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+          <Button variant="ghost" size="sm" onClick={() => setMonth(addMonths(month, -1))}>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="mt-2 max-h-60 overflow-y-auto">
-            {(holidaysQ.data ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No holidays added.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {(holidaysQ.data ?? []).map((h) => (
-                  <li key={h.id} className="flex items-center justify-between py-2 text-sm">
-                    <span>
-                      {format(new Date(h.holiday_date), "MMM d, yyyy")} —{" "}
-                      <span className="text-muted-foreground">{h.name}</span>
-                    </span>
-                    <Button variant="ghost" size="icon" onClick={() => remove.mutate(h.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <span className="px-2 text-sm font-medium">{format(month, "MMMM yyyy")}</span>
+          <Button variant="ghost" size="sm" onClick={() => setMonth(addMonths(month, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            {me?.name} — {format(month, "MMMM yyyy")}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {monthLeave.length} leave day{monthLeave.length === 1 ? "" : "s"} ·{" "}
+            {monthHolidays.length} public holiday{monthHolidays.length === 1 ? "" : "s"}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+              <div key={d} className="py-1">{d}</div>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {Array.from({ length: leadingBlanks }).map((_, i) => (
+              <div key={`b-${i}`} className="aspect-square rounded-md bg-transparent" />
+            ))}
+            {days.map((d) => {
+              const k = ymd(d);
+              const hol = holidayMap.get(k);
+              const lv = leaveMap.get(k);
+              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              const isWork = me?.working_days.includes(d.getDay()) ?? false;
+
+              return (
+                <div
+                  key={k}
+                  className={cn(
+                    "aspect-square rounded-md border border-border p-1 text-left",
+                    hol && "bg-status-on-hold/15 border-status-on-hold/40",
+                    lv && !hol && "bg-status-in-progress/15 border-status-in-progress/40",
+                    !isWork && !hol && !lv && "bg-muted/40",
+                  )}
+                  title={hol ? `Holiday: ${hol.name}` : lv ? `Leave${lv.reason ? `: ${lv.reason}` : ""}` : undefined}
+                >
+                  <p className="text-[11px] font-semibold tabular-nums">{format(d, "d")}</p>
+                  {hol && (
+                    <p className="mt-0.5 truncate text-[9px] font-medium text-status-on-hold">
+                      {hol.name}
+                    </p>
+                  )}
+                  {lv && !hol && (
+                    <p className="mt-0.5 truncate text-[9px] font-medium text-status-in-progress">
+                      Leave
+                    </p>
+                  )}
+                  {!isWork && !hol && !lv && isWeekend && (
+                    <p className="mt-0.5 text-[9px] text-muted-foreground">Off</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Public holiday
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded border border-status-in-progress/40 bg-status-in-progress/15" /> Leave
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded bg-muted" /> Non-working day
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {(monthLeave.length > 0 || monthHolidays.length > 0) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {monthHolidays.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Public holidays</p>
+                <ul className="mt-1 divide-y divide-border rounded-md border border-border">
+                  {monthHolidays.map((h) => (
+                    <li key={h.id} className="flex items-center justify-between p-2">
+                      <span>{h.name}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {format(new Date(h.holiday_date), "EEE, MMM d")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {monthLeave.length > 0 && (
+              <LeaveList leaves={monthLeave} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
-function AddLeaveDialog({ staff }: { staff: import("@/lib/types").Staff[] }) {
+function LeaveList({ leaves }: { leaves: import("@/lib/types").LeaveDay[] }) {
+  const qc = useQueryClient();
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteLeave(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.leave });
+      toast.success("Leave removed");
+    },
+  });
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Leave</p>
+      <ul className="mt-1 divide-y divide-border rounded-md border border-border">
+        {leaves
+          .slice()
+          .sort((a, b) => a.leave_date.localeCompare(b.leave_date))
+          .map((l) => (
+            <li key={l.id} className="flex items-center justify-between p-2">
+              <div>
+                <p>{format(new Date(l.leave_date), "EEE, MMM d")}</p>
+                {l.reason && <p className="text-xs text-muted-foreground">{l.reason}</p>}
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </li>
+          ))}
+      </ul>
+    </div>
+  );
+}
+
+function AddLeaveDialog({
+  staff,
+  defaultStaffId,
+  defaultDate,
+}: {
+  staff: import("@/lib/types").Staff[];
+  defaultStaffId?: string;
+  defaultDate?: Date;
+}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [staffId, setStaffId] = useState("");
-  const [date, setDate] = useState<Date | undefined>();
+  const [staffId, setStaffId] = useState(defaultStaffId ?? "");
+  const [date, setDate] = useState<Date | undefined>(defaultDate);
   const [reason, setReason] = useState("");
-
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
 
   const create = useMutation({
@@ -373,7 +518,13 @@ function AddLeaveDialog({ staff }: { staff: import("@/lib/types").Staff[] }) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => {
+      setOpen(v);
+      if (v) {
+        setStaffId(defaultStaffId ?? staffId);
+        if (defaultDate) setDate(defaultDate);
+      }
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Plus className="mr-1 h-4 w-4" /> Leave
