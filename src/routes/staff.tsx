@@ -333,14 +333,20 @@ function TaskList({
   logs,
   clients,
   projects,
+  holidays,
+  leave,
+  me,
   onStatus,
   onDelete,
   meStaffId,
 }: {
   tasks: Task[];
-  logs: ReturnType<typeof useQuery<unknown>>["data"] extends infer _ ? import("@/lib/types").TimeLog[] : never;
+  logs: import("@/lib/types").TimeLog[];
   clients: import("@/lib/types").Client[];
   projects: import("@/lib/types").Project[];
+  holidays: import("@/lib/types").PublicHoliday[];
+  leave: import("@/lib/types").LeaveDay[];
+  me: import("@/lib/types").Staff | null;
   onStatus: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   meStaffId: string;
