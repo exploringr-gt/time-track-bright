@@ -634,16 +634,32 @@ function LogTimeDialog({
   const [notes, setNotes] = useState("");
 
   const log = useMutation({
-    mutationFn: () =>
-      api.createTimeLog({
+    mutationFn: async () => {
+      const logDate = ymd(date);
+      const created = await api.createTimeLog({
         task_id: task.id,
         staff_id: meStaffId,
-        log_date: ymd(date),
+        log_date: logDate,
         hours: Number(hours),
         notes: notes || null,
-      }),
+      });
+      // Auto-extend actual_start_date / actual_end_date based on log range.
+      // Users can still override via Edit task.
+      const patch: Partial<Task> = {};
+      if (!task.actual_start_date || logDate < task.actual_start_date) {
+        patch.actual_start_date = logDate;
+      }
+      if (!task.actual_end_date || logDate > task.actual_end_date) {
+        patch.actual_end_date = logDate;
+      }
+      if (Object.keys(patch).length > 0) {
+        await api.updateTask(task.id, patch);
+      }
+      return created;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.timeLogs });
+      qc.invalidateQueries({ queryKey: qk.tasks });
       toast.success("Time logged");
       setOpen(false);
       setHours("1");
