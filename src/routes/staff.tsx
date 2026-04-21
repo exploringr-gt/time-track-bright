@@ -538,7 +538,7 @@ function NewTaskDialog({ meStaffId }: { meStaffId: string }) {
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
           <Button
             onClick={() => create.mutate()}
-            disabled={!projectId || !description || create.isPending}
+            disabled={!clientId || !description || create.isPending}
           >
             Add task
           </Button>
