@@ -64,7 +64,14 @@ export const api = {
         .select("*")
         .order("created_at", { ascending: false }) as never,
     ),
-  createTask: (input: Partial<Task>) =>
+  createTask: (input: {
+    staff_id: string;
+    project_id: string;
+    description: string;
+    estimated_hours?: number;
+    status?: Task["status"];
+    due_date?: string | null;
+  }) =>
     unwrap<Task[]>(
       supabase.from("tasks").insert(input).select() as never,
     ),
@@ -83,7 +90,13 @@ export const api = {
         .select("*")
         .order("log_date", { ascending: false }) as never,
     ),
-  createTimeLog: (input: Partial<TimeLog>) =>
+  createTimeLog: (input: {
+    task_id: string;
+    staff_id: string;
+    log_date: string;
+    hours: number;
+    notes?: string | null;
+  }) =>
     unwrap<TimeLog[]>(
       supabase.from("time_logs").insert(input).select() as never,
     ),
