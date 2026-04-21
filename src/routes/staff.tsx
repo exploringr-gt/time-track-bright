@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Clock } from "lucide-react";
+import { format, differenceInCalendarDays } from "date-fns";
+import { CalendarIcon, Plus, Trash2, Clock, Pencil } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import {
@@ -20,6 +20,8 @@ import {
   overrunLevel,
   pct,
   plannedHours,
+  spreadTaskHours,
+  validateTaskBoundary,
 } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
 import { useSelectedStaff } from "@/lib/staffStore";
