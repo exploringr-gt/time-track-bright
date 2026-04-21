@@ -294,6 +294,7 @@ function Workspace({
           <TabsTrigger value="cancelled">
             Cancelled ({grouped.cancelled.length})
           </TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
         {(["active", "on_hold", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
@@ -302,12 +303,26 @@ function Workspace({
               logs={myLogs}
               clients={clientsQ.data ?? []}
               projects={projectsQ.data ?? []}
+              holidays={holidaysQ.data ?? []}
+              leave={leaveQ.data ?? []}
+              me={me ?? null}
               onStatus={(id, status) => updateStatus.mutate({ id, status })}
               onDelete={(id) => deleteTask.mutate(id)}
               meStaffId={meStaffId}
             />
           </TabsContent>
         ))}
+        <TabsContent value="timeline" className="mt-4">
+          <TaskTimeline
+            tasks={myTasks}
+            logs={myLogs}
+            clients={clientsQ.data ?? []}
+            projects={projectsQ.data ?? []}
+            holidays={holidaysQ.data ?? []}
+            leave={leaveQ.data ?? []}
+            me={me ?? null}
+          />
+        </TabsContent>
       </Tabs>
     </main>
   );
