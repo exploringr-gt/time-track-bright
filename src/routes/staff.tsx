@@ -378,9 +378,11 @@ function TaskList({
                   <p className="text-xs text-muted-foreground">
                     {client?.name ?? "?"} · {project?.name ?? "?"}
                   </p>
-                  {t.due_date && (
+                  {(t.start_date || t.due_date) && (
                     <span className="text-xs text-muted-foreground">
-                      Due {format(new Date(t.due_date), "MMM d")}
+                      {t.start_date ? format(new Date(t.start_date), "MMM d") : "?"}
+                      {" → "}
+                      {t.due_date ? format(new Date(t.due_date), "MMM d") : "?"}
                     </span>
                   )}
                 </div>
