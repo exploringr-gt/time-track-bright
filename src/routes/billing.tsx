@@ -222,6 +222,14 @@ function Billing() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={handleExportXLSX} disabled={grouped.length === 0}>
+            <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+            Export XLS
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={grouped.length === 0}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Export PDF
+          </Button>
         </div>
       </div>
 
