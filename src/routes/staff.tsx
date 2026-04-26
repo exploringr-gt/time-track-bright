@@ -410,8 +410,6 @@ function TaskList({
   onStatus,
   onDelete,
   meStaffId,
-  autoLogTaskId,
-  onAutoLogClose,
 }: {
   tasks: Task[];
   logs: import("@/lib/types").TimeLog[];
@@ -423,8 +421,6 @@ function TaskList({
   onStatus: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   meStaffId: string;
-  autoLogTaskId?: string | null;
-  onAutoLogClose?: () => void;
 }) {
   if (tasks.length === 0) {
     return (
