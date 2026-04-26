@@ -393,6 +393,25 @@ function Workspace({
           />
         </TabsContent>
       </Tabs>
+
+      {autoLogTaskId &&
+        (() => {
+          const t = myTasks.find((x) => x.id === autoLogTaskId);
+          if (!t) return null;
+          return (
+            <LogTimeDialog
+              key={autoLogTaskId}
+              task={t}
+              meStaffId={meStaffId}
+              mode="completion"
+              open={true}
+              onOpenChange={(o) => {
+                if (!o) setAutoLogTaskId(null);
+              }}
+              onLogged={() => setAutoLogTaskId(null)}
+            />
+          );
+        })()}
     </main>
   );
 }
