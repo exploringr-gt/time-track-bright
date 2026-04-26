@@ -767,6 +767,8 @@ function LogTimeDialog({
   useEffect(() => {
     if (!open) return;
     if (mode === "completion") {
+      // Prefill with the task's planned span and full estimated hours.
+      // Staff confirms or edits with what really happened.
       const start = task.actual_start_date
         ? new Date(task.actual_start_date)
         : task.start_date
@@ -774,15 +776,12 @@ function LogTimeDialog({
           : new Date();
       const end = task.actual_end_date
         ? new Date(task.actual_end_date)
-        : new Date();
+        : task.due_date
+          ? new Date(task.due_date)
+          : new Date();
       setStartDate(start);
       setEndDate(end);
-      const alreadyLogged = loggedHoursForTask(task.id, []);
-      const remaining = Math.max(
-        Number(task.estimated_hours) - alreadyLogged,
-        0,
-      );
-      setHours(String(remaining > 0 ? remaining : task.estimated_hours || 1));
+      setHours(String(Number(task.estimated_hours) || 1));
       setNotes("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
