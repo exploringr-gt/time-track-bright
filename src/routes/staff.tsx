@@ -196,15 +196,22 @@ function Workspace({
   const myTasks = (tasksQ.data ?? []).filter((t) => t.staff_id === meStaffId);
   const myLogs = (logsQ.data ?? []).filter((l) => l.staff_id === meStaffId);
 
+  // When a task is moved to "complete", auto-open the Log dialog so the staff
+  // member can record actual start/end dates and the hours it really took.
+  const [autoLogTaskId, setAutoLogTaskId] = useState<string | null>(null);
+
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
       api.updateTask(id, {
         status,
         completed_at: status === "complete" ? new Date().toISOString() : null,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.tasks });
       toast.success("Status updated");
+      if (vars.status === "complete") {
+        setAutoLogTaskId(vars.id);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -217,6 +224,7 @@ function Workspace({
       toast.success("Task deleted");
     },
   });
+
 
   // My week stats
   const today = new Date();
