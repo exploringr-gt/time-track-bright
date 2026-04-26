@@ -743,8 +743,7 @@ function LogTimeDialog({
   const [endDate, setEndDate] = useState<Date>(new Date());
 
   // Reset / prefill when (re-)opening, esp. in completion mode.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useMemo(() => {
+  useEffect(() => {
     if (!open) return;
     if (mode === "completion") {
       const start = task.actual_start_date
@@ -757,7 +756,6 @@ function LogTimeDialog({
         : new Date();
       setStartDate(start);
       setEndDate(end);
-      // Suggest remaining-to-complete hours, falling back to estimate.
       const alreadyLogged = loggedHoursForTask(task.id, []);
       const remaining = Math.max(
         Number(task.estimated_hours) - alreadyLogged,
@@ -766,6 +764,7 @@ function LogTimeDialog({
       setHours(String(remaining > 0 ? remaining : task.estimated_hours || 1));
       setNotes("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, task.id]);
 
   const log = useMutation({
