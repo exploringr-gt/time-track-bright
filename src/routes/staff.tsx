@@ -67,6 +67,8 @@ export const Route = createFileRoute("/staff")({
 
 function StaffPage() {
   const [selectedId, setSelectedId] = useSelectedStaff();
+  const [role, setRole] = useUserRole();
+  const navigate = useNavigate();
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
 
   if (staffQ.isLoading) {
@@ -75,6 +77,42 @@ function StaffPage() {
 
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
+
+  // Viewer (PwC NL/KS) is read-only — bounce to Dashboard.
+  if (role === "viewer") {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <Card>
+          <CardHeader>
+            <CardTitle>Read-only viewer (PwC NL/KS)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This view is for staff to log their time. As a viewer, head to the
+              Dashboard or Billing pages to review and export reports.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate({ to: "/dashboard" })}>
+                Go to Dashboard
+              </Button>
+              <Button variant="outline" onClick={() => navigate({ to: "/billing" })}>
+                Go to Billing
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setRole("staff");
+                  setSelectedId(null);
+                }}
+              >
+                Switch user
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!me) {
     return (
@@ -93,7 +131,18 @@ function StaffPage() {
                 .
               </p>
             ) : (
-              <Select onValueChange={(v) => setSelectedId(v)}>
+              <Select
+                onValueChange={(v) => {
+                  if (v === "__viewer__") {
+                    setRole("viewer");
+                    setSelectedId(null);
+                    navigate({ to: "/dashboard" });
+                  } else {
+                    setRole("staff");
+                    setSelectedId(v);
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
@@ -103,6 +152,9 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value="__viewer__">
+                    PwC NL/KS (read-only viewer)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -112,7 +164,15 @@ function StaffPage() {
     );
   }
 
-  return <Workspace meStaffId={me.id} onSwitch={() => setSelectedId(null)} />;
+  return (
+    <Workspace
+      meStaffId={me.id}
+      onSwitch={() => {
+        setRole("staff");
+        setSelectedId(null);
+      }}
+    />
+  );
 }
 
 function Workspace({
