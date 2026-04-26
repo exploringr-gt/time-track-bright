@@ -182,9 +182,11 @@ function StaffPage() {
 function Workspace({
   meStaffId,
   onSwitch,
+  readOnly = false,
 }: {
   meStaffId: string;
   onSwitch: () => void;
+  readOnly?: boolean;
 }) {
   const qc = useQueryClient();
 
@@ -262,18 +264,24 @@ function Workspace({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
+      {readOnly && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Viewing as <strong>PwC NL/AL</strong> — read-only. You're seeing this
+          staff member's tasks and time logs exactly as they see them.
+        </div>
+      )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Logged in as
+            {readOnly ? "Viewing" : "Logged in as"}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={onSwitch}>
-            Switch user
+            {readOnly ? "Pick another staff" : "Switch user"}
           </Button>
-          <NewTaskDialog meStaffId={meStaffId} />
+          {!readOnly && <NewTaskDialog meStaffId={meStaffId} />}
         </div>
       </div>
 
