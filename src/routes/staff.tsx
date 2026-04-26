@@ -513,40 +513,46 @@ function TaskList({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Select
-                  value={t.status}
-                  onValueChange={(v) => onStatus(t.id, v as TaskStatus)}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_LABEL[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
-                {me && (
-                  <EditTaskDialog
-                    task={t}
-                    me={me}
-                    holidays={holidays}
-                    leave={leave}
-                    logs={logs}
-                  />
+                {readOnly ? (
+                  <StatusBadge status={t.status} />
+                ) : (
+                  <>
+                    <Select
+                      value={t.status}
+                      onValueChange={(v) => onStatus(t.id, v as TaskStatus)}
+                    >
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {STATUS_LABEL[s]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
+                    {me && (
+                      <EditTaskDialog
+                        task={t}
+                        me={me}
+                        holidays={holidays}
+                        leave={leave}
+                        logs={logs}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm("Delete this task and all its time logs?")) onDelete(t.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (confirm("Delete this task and all its time logs?")) onDelete(t.id);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
               </div>
             </CardContent>
             <div className="border-t border-border">
