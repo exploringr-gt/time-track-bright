@@ -378,8 +378,6 @@ function Workspace({
               onStatus={(id, status) => updateStatus.mutate({ id, status })}
               onDelete={(id) => deleteTask.mutate(id)}
               meStaffId={meStaffId}
-              autoLogTaskId={autoLogTaskId}
-              onAutoLogClose={() => setAutoLogTaskId(null)}
             />
           </TabsContent>
         ))}
