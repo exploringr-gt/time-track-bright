@@ -1,6 +1,6 @@
 // Persists the currently-selected user identity in localStorage so refresh keeps you signed in.
 // Identity is either a real staff member (role=staff with a staff_id) or a read-only
-// auditor identity (role=viewer, used for PwC NL/KS).
+// auditor identity (role=viewer, used for PwC NL/AL).
 import { useEffect, useState } from "react";
 
 const KEY = "tt.selectedStaffId";
