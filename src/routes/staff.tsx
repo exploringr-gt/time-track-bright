@@ -849,8 +849,19 @@ function LogTimeDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const isCompletion = mode === "completion";
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        // In completion mode the user MUST confirm or correct the data — no
+        // dismiss, no skip. Only the Confirm button can close the dialog
+        // (it sets open=false after a successful save).
+        if (isCompletion && !v) return;
+        setOpen(v);
+      }}
+    >
       {openProp === undefined && (
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
@@ -859,26 +870,39 @@ function LogTimeDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent>
+      <DialogContent
+        className={isCompletion ? "[&>button]:hidden" : undefined}
+        onPointerDownOutside={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
-            {mode === "completion"
-              ? `Log completion — ${task.description}`
+            {isCompletion
+              ? `Confirm completion — ${task.description}`
               : `Log time — ${task.description}`}
           </DialogTitle>
         </DialogHeader>
-        {mode === "completion" ? (
+        {isCompletion ? (
           <div className="grid gap-4">
             <p className="text-xs text-muted-foreground">
-              You marked this task as complete. Record when you actually started
-              and finished, and the total hours it took.
+              You marked this task as complete. We've prefilled the planned span
+              and the estimated hours. Confirm if correct, or edit to reflect
+              when you actually started, finished, and the real hours it took.
+              This is required so utilization and billing reflect actual work.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <DateField label="Actual start" value={startDate} onChange={(d) => d && setStartDate(d)} />
-              <DateField label="Actual end" value={endDate} onChange={(d) => d && setEndDate(d)} />
+              <DateField label="Date started" value={startDate} onChange={(d) => d && setStartDate(d)} />
+              <DateField label="Date completed" value={endDate} onChange={(d) => d && setEndDate(d)} />
             </div>
             <div>
-              <Label>Total hours it took</Label>
+              <Label>Actual hours it took</Label>
               <Input
                 type="number"
                 step="0.25"
@@ -933,11 +957,13 @@ function LogTimeDialog({
           </div>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            {mode === "completion" ? "Skip" : "Cancel"}
-          </Button>
+          {!isCompletion && (
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          )}
           <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            {mode === "completion" ? "Save completion" : "Log"}
+            {isCompletion ? "Confirm completion" : "Log"}
           </Button>
         </DialogFooter>
       </DialogContent>
