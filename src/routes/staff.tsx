@@ -697,19 +697,92 @@ function LogTimeDialog({
   task,
   meStaffId,
   onLogged,
+  open: openProp,
+  onOpenChange,
+  mode = "log",
 }: {
   task: Task;
   meStaffId: string;
   onLogged: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * "log" — user clicked the Log button to record one entry.
+   * "completion" — auto-opened when the task was just marked complete; we
+   * collect the actual start/end dates of the whole task and the total
+   * hours it took, recording it as a single time-log on the end date.
+   */
+  mode?: "log" | "completion";
 }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = (v: boolean) => {
+    if (onOpenChange) onOpenChange(v);
+    else setInternalOpen(v);
+  };
+
   const [date, setDate] = useState<Date>(new Date());
   const [hours, setHours] = useState("1");
   const [notes, setNotes] = useState("");
+  // Completion-mode fields
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+
+  // Reset / prefill when (re-)opening, esp. in completion mode.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => {
+    if (!open) return;
+    if (mode === "completion") {
+      const start = task.actual_start_date
+        ? new Date(task.actual_start_date)
+        : task.start_date
+          ? new Date(task.start_date)
+          : new Date();
+      const end = task.actual_end_date
+        ? new Date(task.actual_end_date)
+        : new Date();
+      setStartDate(start);
+      setEndDate(end);
+      // Suggest remaining-to-complete hours, falling back to estimate.
+      const alreadyLogged = loggedHoursForTask(task.id, []);
+      const remaining = Math.max(
+        Number(task.estimated_hours) - alreadyLogged,
+        0,
+      );
+      setHours(String(remaining > 0 ? remaining : task.estimated_hours || 1));
+      setNotes("");
+    }
+  }, [open, mode, task.id]);
 
   const log = useMutation({
     mutationFn: async () => {
+      if (mode === "completion") {
+        if (startDate > endDate) {
+          throw new Error("Start date must be on or before end date.");
+        }
+        const startKey = ymd(startDate);
+        const endKey = ymd(endDate);
+        const totalHours = Number(hours);
+        if (!totalHours || totalHours <= 0) {
+          throw new Error("Enter the actual hours it took.");
+        }
+        // Record as a single time log on the end date.
+        const created = await api.createTimeLog({
+          task_id: task.id,
+          staff_id: meStaffId,
+          log_date: endKey,
+          hours: totalHours,
+          notes: notes || "Logged on completion",
+        });
+        // Stamp the task's actual span exactly.
+        await api.updateTask(task.id, {
+          actual_start_date: startKey,
+          actual_end_date: endKey,
+        });
+        return created;
+      }
+
       const logDate = ymd(date);
       const created = await api.createTimeLog({
         task_id: task.id,
@@ -735,69 +808,104 @@ function LogTimeDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.timeLogs });
       qc.invalidateQueries({ queryKey: qk.tasks });
-      toast.success("Time logged");
+      toast.success(mode === "completion" ? "Completion logged" : "Time logged");
       setOpen(false);
       setHours("1");
       setNotes("");
-      if (task.status === "not_started") onLogged();
+      if (mode === "log" && task.status === "not_started") onLogged();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Clock className="mr-1 h-4 w-4" />
-          Log
-        </Button>
-      </DialogTrigger>
+      {openProp === undefined && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Clock className="mr-1 h-4 w-4" />
+            Log
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Log time — {task.description}</DialogTitle>
+          <DialogTitle>
+            {mode === "completion"
+              ? `Log completion — ${task.description}`
+              : `Log time — ${task.description}`}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => d && setDate(d)}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+        {mode === "completion" ? (
+          <div className="grid gap-4">
+            <p className="text-xs text-muted-foreground">
+              You marked this task as complete. Record when you actually started
+              and finished, and the total hours it took.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <DateField label="Actual start" value={startDate} onChange={(d) => d && setStartDate(d)} />
+              <DateField label="Actual end" value={endDate} onChange={(d) => d && setEndDate(d)} />
             </div>
             <div>
-              <Label>Hours</Label>
+              <Label>Total hours it took</Label>
               <Input
                 type="number"
                 step="0.25"
-                min="0.25"
+                min="0"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
               />
             </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            </div>
           </div>
-          <div>
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        ) : (
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, "PPP")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Hours</Label>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            </div>
           </div>
-        </div>
+        )}
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            {mode === "completion" ? "Skip" : "Cancel"}
+          </Button>
           <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            Log
+            {mode === "completion" ? "Save completion" : "Log"}
           </Button>
         </DialogFooter>
       </DialogContent>
