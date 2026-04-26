@@ -440,6 +440,7 @@ function TaskList({
   onStatus,
   onDelete,
   meStaffId,
+  readOnly = false,
 }: {
   tasks: Task[];
   logs: import("@/lib/types").TimeLog[];
@@ -451,6 +452,7 @@ function TaskList({
   onStatus: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   meStaffId: string;
+  readOnly?: boolean;
 }) {
   if (tasks.length === 0) {
     return (
