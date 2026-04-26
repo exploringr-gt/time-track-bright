@@ -2,10 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { addMonths, format, startOfMonth } from "date-fns";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronRight as Cr } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronRight as Cr,
+  FileSpreadsheet,
+  FileText,
+} from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import { monthRange, ymd } from "@/lib/dates";
+import { exportXLSX, exportPDF } from "@/lib/exports";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,6 +109,82 @@ function Billing() {
     });
   };
 
+  const monthLabel = format(month, "MMMM yyyy");
+
+  const flatRows = useMemo(() => {
+    const rows: Record<string, unknown>[] = [];
+    for (const c of grouped) {
+      for (const s of c.staff) {
+        for (const t of s.tasks) {
+          rows.push({
+            client: c.clientName,
+            staff: s.staffName,
+            task: t.description,
+            hours: t.hours.toFixed(2),
+          });
+        }
+      }
+    }
+    return rows;
+  }, [grouped]);
+
+  const handleExportXLSX = () => {
+    exportXLSX(`billing-${format(month, "yyyy-MM")}`, [
+      {
+        name: "Detail",
+        columns: [
+          { header: "Client", key: "client", width: 24 },
+          { header: "Staff", key: "staff", width: 22 },
+          { header: "Task", key: "task", width: 50 },
+          { header: "Hours", key: "hours" },
+        ],
+        rows: flatRows,
+      },
+      {
+        name: "Summary by client",
+        columns: [
+          { header: "Client", key: "client", width: 26 },
+          { header: "Hours", key: "hours" },
+        ],
+        rows: grouped.map((c) => ({
+          client: c.clientName,
+          hours: c.total.toFixed(2),
+        })),
+      },
+    ]);
+  };
+
+  const handleExportPDF = () => {
+    exportPDF(
+      `billing-${format(month, "yyyy-MM")}`,
+      "Billing Report",
+      `${monthLabel} · Cancelled tasks excluded · Grand total ${grandTotal.toFixed(2)}h`,
+      [
+        {
+          heading: "Summary by client",
+          columns: [
+            { header: "Client", key: "client" },
+            { header: "Hours", key: "hours" },
+          ],
+          rows: grouped.map((c) => ({
+            client: c.clientName,
+            hours: c.total.toFixed(2) + "h",
+          })),
+        },
+        {
+          heading: "Detail",
+          columns: [
+            { header: "Client", key: "client" },
+            { header: "Staff", key: "staff" },
+            { header: "Task", key: "task" },
+            { header: "Hours", key: "hours" },
+          ],
+          rows: flatRows,
+        },
+      ],
+    );
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -138,6 +222,14 @@ function Billing() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={handleExportXLSX} disabled={grouped.length === 0}>
+            <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+            Export XLS
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={grouped.length === 0}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Export PDF
+          </Button>
         </div>
       </div>
 

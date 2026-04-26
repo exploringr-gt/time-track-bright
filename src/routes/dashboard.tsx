@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import {
@@ -33,6 +33,9 @@ import { Button } from "@/components/ui/button";
 import { WeekSelector } from "@/components/WeekSelector";
 import { UtilCell } from "@/components/UtilCell";
 import { StatusBadge } from "@/components/StatusBadge";
+import { InfoTip } from "@/components/InfoTip";
+import { exportXLSX, exportPDF } from "@/lib/exports";
+import { format } from "date-fns";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Tempo" }] }),
@@ -106,6 +109,70 @@ function Dashboard() {
     [tasks],
   );
 
+  const handleExportXLSX = () => {
+    exportXLSX(`utilization-${ymd(start)}_${ymd(end)}`, [
+      {
+        name: "Utilization",
+        columns: [
+          { header: "Staff", key: "staff", width: 24 },
+          { header: "Planned (h)", key: "planned" },
+          { header: "Committed (h)", key: "committed" },
+          { header: "Logged (h)", key: "logged" },
+          { header: "Projected %", key: "projected" },
+          { header: "Actual %", key: "actual" },
+          { header: "Available (h)", key: "available" },
+          { header: "Active tasks", key: "active" },
+          { header: "On hold", key: "onHold" },
+          { header: "Overdue", key: "overdue" },
+          { header: "Overrunning", key: "overrunning" },
+        ],
+        rows: rows.map((r) => ({
+          staff: r.staff.name,
+          planned: r.planned.toFixed(1),
+          committed: r.committed.toFixed(1),
+          logged: r.logged.toFixed(1),
+          projected: `${r.projectedPct.toFixed(0)}%`,
+          actual: `${r.actualPct.toFixed(0)}%`,
+          available: r.available.toFixed(1),
+          active: r.active,
+          onHold: r.onHold,
+          overdue: r.overdue,
+          overrunning: r.overrunning,
+        })),
+      },
+    ]);
+  };
+
+  const handleExportPDF = () => {
+    exportPDF(
+      `utilization-${ymd(start)}_${ymd(end)}`,
+      "Team Utilization Report",
+      `Week of ${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`,
+      [
+        {
+          columns: [
+            { header: "Staff", key: "staff" },
+            { header: "Planned", key: "planned" },
+            { header: "Committed", key: "committed" },
+            { header: "Logged", key: "logged" },
+            { header: "Projected", key: "projected" },
+            { header: "Actual", key: "actual" },
+            { header: "Available", key: "available" },
+          ],
+          rows: rows.map((r) => ({
+            staff: r.staff.name,
+            planned: r.planned.toFixed(1) + "h",
+            committed: r.committed.toFixed(1) + "h",
+            logged: r.logged.toFixed(1) + "h",
+            projected: `${r.projectedPct.toFixed(0)}%`,
+            actual: `${r.actualPct.toFixed(0)}%`,
+            available: r.available.toFixed(1) + "h",
+          })),
+        },
+      ],
+    );
+  };
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -115,7 +182,17 @@ function Dashboard() {
             Planned vs committed vs logged for the selected week.
           </p>
         </div>
-        <WeekSelector value={weekDate} onChange={setWeekDate} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportXLSX}>
+            <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+            Export XLS
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Export PDF
+          </Button>
+          <WeekSelector value={weekDate} onChange={setWeekDate} />
+        </div>
       </div>
 
       <Card className="mb-6 overflow-hidden">
@@ -123,9 +200,40 @@ function Dashboard() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">Staff</TableHead>
-              <TableHead className="text-right">Planned</TableHead>
-              <TableHead className="text-right">Committed</TableHead>
-              <TableHead className="text-right">Logged</TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Planned
+                  <InfoTip label="What is Planned?">
+                    <strong>Planned hours</strong> = the staff member's working
+                    capacity for the week. It is calculated as their weekly
+                    target hours (e.g. 40h) minus any public holidays and
+                    booked leave that fall on their working days.
+                  </InfoTip>
+                </span>
+              </TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Committed
+                  <InfoTip label="What is Committed?">
+                    <strong>Committed hours</strong> = the remaining estimated
+                    work on this staff member's active tasks (Not started + In
+                    progress). For each active task it is{" "}
+                    <em>max(estimated&nbsp;−&nbsp;already&nbsp;logged, 0)</em>,
+                    summed across all active tasks. It does not depend on the
+                    selected week.
+                  </InfoTip>
+                </span>
+              </TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Logged
+                  <InfoTip label="What is Logged?">
+                    <strong>Logged hours</strong> = the actual hours the staff
+                    member recorded against any task during the selected week
+                    (Mon&nbsp;–&nbsp;Sun).
+                  </InfoTip>
+                </span>
+              </TableHead>
               <TableHead className="text-right">Projected</TableHead>
               <TableHead className="text-right">Actual</TableHead>
               <TableHead className="text-right">Available</TableHead>

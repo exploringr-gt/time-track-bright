@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, differenceInCalendarDays } from "date-fns";
@@ -24,7 +24,8 @@ import {
   validateTaskBoundary,
 } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
-import { useSelectedStaff } from "@/lib/staffStore";
+import { useSelectedStaff, useUserRole } from "@/lib/staffStore";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,8 @@ export const Route = createFileRoute("/staff")({
 
 function StaffPage() {
   const [selectedId, setSelectedId] = useSelectedStaff();
+  const [role, setRole] = useUserRole();
+  const navigate = useNavigate();
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
 
   if (staffQ.isLoading) {
@@ -74,6 +77,42 @@ function StaffPage() {
 
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
+
+  // Viewer (PwC NL/KS) is read-only — bounce to Dashboard.
+  if (role === "viewer") {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <Card>
+          <CardHeader>
+            <CardTitle>Read-only viewer (PwC NL/KS)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This view is for staff to log their time. As a viewer, head to the
+              Dashboard or Billing pages to review and export reports.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate({ to: "/dashboard" })}>
+                Go to Dashboard
+              </Button>
+              <Button variant="outline" onClick={() => navigate({ to: "/billing" })}>
+                Go to Billing
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setRole("staff");
+                  setSelectedId(null);
+                }}
+              >
+                Switch user
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!me) {
     return (
@@ -92,7 +131,18 @@ function StaffPage() {
                 .
               </p>
             ) : (
-              <Select onValueChange={(v) => setSelectedId(v)}>
+              <Select
+                onValueChange={(v) => {
+                  if (v === "__viewer__") {
+                    setRole("viewer");
+                    setSelectedId(null);
+                    navigate({ to: "/dashboard" });
+                  } else {
+                    setRole("staff");
+                    setSelectedId(v);
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
@@ -102,6 +152,9 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value="__viewer__">
+                    PwC NL/KS (read-only viewer)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -111,7 +164,15 @@ function StaffPage() {
     );
   }
 
-  return <Workspace meStaffId={me.id} onSwitch={() => setSelectedId(null)} />;
+  return (
+    <Workspace
+      meStaffId={me.id}
+      onSwitch={() => {
+        setRole("staff");
+        setSelectedId(null);
+      }}
+    />
+  );
 }
 
 function Workspace({
@@ -135,15 +196,22 @@ function Workspace({
   const myTasks = (tasksQ.data ?? []).filter((t) => t.staff_id === meStaffId);
   const myLogs = (logsQ.data ?? []).filter((l) => l.staff_id === meStaffId);
 
+  // When a task is moved to "complete", auto-open the Log dialog so the staff
+  // member can record actual start/end dates and the hours it really took.
+  const [autoLogTaskId, setAutoLogTaskId] = useState<string | null>(null);
+
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
       api.updateTask(id, {
         status,
         completed_at: status === "complete" ? new Date().toISOString() : null,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.tasks });
       toast.success("Status updated");
+      if (vars.status === "complete") {
+        setAutoLogTaskId(vars.id);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -156,6 +224,7 @@ function Workspace({
       toast.success("Task deleted");
     },
   });
+
 
   // My week stats
   const today = new Date();
@@ -324,6 +393,25 @@ function Workspace({
           />
         </TabsContent>
       </Tabs>
+
+      {autoLogTaskId &&
+        (() => {
+          const t = myTasks.find((x) => x.id === autoLogTaskId);
+          if (!t) return null;
+          return (
+            <LogTimeDialog
+              key={autoLogTaskId}
+              task={t}
+              meStaffId={meStaffId}
+              mode="completion"
+              open={true}
+              onOpenChange={(o) => {
+                if (!o) setAutoLogTaskId(null);
+              }}
+              onLogged={() => setAutoLogTaskId(null)}
+            />
+          );
+        })()}
     </main>
   );
 }
@@ -622,19 +710,91 @@ function LogTimeDialog({
   task,
   meStaffId,
   onLogged,
+  open: openProp,
+  onOpenChange,
+  mode = "log",
 }: {
   task: Task;
   meStaffId: string;
   onLogged: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * "log" — user clicked the Log button to record one entry.
+   * "completion" — auto-opened when the task was just marked complete; we
+   * collect the actual start/end dates of the whole task and the total
+   * hours it took, recording it as a single time-log on the end date.
+   */
+  mode?: "log" | "completion";
 }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = (v: boolean) => {
+    if (onOpenChange) onOpenChange(v);
+    else setInternalOpen(v);
+  };
+
   const [date, setDate] = useState<Date>(new Date());
   const [hours, setHours] = useState("1");
   const [notes, setNotes] = useState("");
+  // Completion-mode fields
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+
+  // Reset / prefill when (re-)opening, esp. in completion mode.
+  useEffect(() => {
+    if (!open) return;
+    if (mode === "completion") {
+      const start = task.actual_start_date
+        ? new Date(task.actual_start_date)
+        : task.start_date
+          ? new Date(task.start_date)
+          : new Date();
+      const end = task.actual_end_date
+        ? new Date(task.actual_end_date)
+        : new Date();
+      setStartDate(start);
+      setEndDate(end);
+      const alreadyLogged = loggedHoursForTask(task.id, []);
+      const remaining = Math.max(
+        Number(task.estimated_hours) - alreadyLogged,
+        0,
+      );
+      setHours(String(remaining > 0 ? remaining : task.estimated_hours || 1));
+      setNotes("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mode, task.id]);
 
   const log = useMutation({
     mutationFn: async () => {
+      if (mode === "completion") {
+        if (startDate > endDate) {
+          throw new Error("Start date must be on or before end date.");
+        }
+        const startKey = ymd(startDate);
+        const endKey = ymd(endDate);
+        const totalHours = Number(hours);
+        if (!totalHours || totalHours <= 0) {
+          throw new Error("Enter the actual hours it took.");
+        }
+        // Record as a single time log on the end date.
+        const created = await api.createTimeLog({
+          task_id: task.id,
+          staff_id: meStaffId,
+          log_date: endKey,
+          hours: totalHours,
+          notes: notes || "Logged on completion",
+        });
+        // Stamp the task's actual span exactly.
+        await api.updateTask(task.id, {
+          actual_start_date: startKey,
+          actual_end_date: endKey,
+        });
+        return created;
+      }
+
       const logDate = ymd(date);
       const created = await api.createTimeLog({
         task_id: task.id,
@@ -660,69 +820,104 @@ function LogTimeDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.timeLogs });
       qc.invalidateQueries({ queryKey: qk.tasks });
-      toast.success("Time logged");
+      toast.success(mode === "completion" ? "Completion logged" : "Time logged");
       setOpen(false);
       setHours("1");
       setNotes("");
-      if (task.status === "not_started") onLogged();
+      if (mode === "log" && task.status === "not_started") onLogged();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Clock className="mr-1 h-4 w-4" />
-          Log
-        </Button>
-      </DialogTrigger>
+      {openProp === undefined && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Clock className="mr-1 h-4 w-4" />
+            Log
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Log time — {task.description}</DialogTitle>
+          <DialogTitle>
+            {mode === "completion"
+              ? `Log completion — ${task.description}`
+              : `Log time — ${task.description}`}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => d && setDate(d)}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+        {mode === "completion" ? (
+          <div className="grid gap-4">
+            <p className="text-xs text-muted-foreground">
+              You marked this task as complete. Record when you actually started
+              and finished, and the total hours it took.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <DateField label="Actual start" value={startDate} onChange={(d) => d && setStartDate(d)} />
+              <DateField label="Actual end" value={endDate} onChange={(d) => d && setEndDate(d)} />
             </div>
             <div>
-              <Label>Hours</Label>
+              <Label>Total hours it took</Label>
               <Input
                 type="number"
                 step="0.25"
-                min="0.25"
+                min="0"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
               />
             </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            </div>
           </div>
-          <div>
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        ) : (
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, "PPP")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Hours</Label>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            </div>
           </div>
-        </div>
+        )}
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            {mode === "completion" ? "Skip" : "Cancel"}
+          </Button>
           <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            Log
+            {mode === "completion" ? "Save completion" : "Log"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -139,7 +139,26 @@ function TopNav() {
             Settings
           </Link>
         </nav>
+        <div className="ml-auto">
+          <RoleBadge />
+        </div>
       </div>
     </header>
+  );
+}
+
+function RoleBadge() {
+  if (typeof window === "undefined") return null;
+  let role: string | null = null;
+  try {
+    role = window.localStorage.getItem("tt.userRole");
+  } catch {
+    // ignore
+  }
+  if (role !== "viewer") return null;
+  return (
+    <span className="rounded-full border border-border bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground">
+      PwC NL/KS · read-only
+    </span>
   );
 }
