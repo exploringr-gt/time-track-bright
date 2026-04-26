@@ -77,51 +77,41 @@ function StaffPage() {
 
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
+  const isViewer = role === "viewer";
 
-  // Viewer (PwC NL/KS) is read-only — bounce to Dashboard.
-  if (role === "viewer") {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16">
-        <Card>
-          <CardHeader>
-            <CardTitle>Read-only viewer (PwC NL/KS)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This view is for staff to log their time. As a viewer, head to the
-              Dashboard or Billing pages to review and export reports.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate({ to: "/dashboard" })}>
-                Go to Dashboard
-              </Button>
-              <Button variant="outline" onClick={() => navigate({ to: "/billing" })}>
-                Go to Billing
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setRole("staff");
-                  setSelectedId(null);
-                }}
-              >
-                Switch user
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // Both staff and viewer first need to pick a person to view.
+  // Staff = "this is me, I'll log time". Viewer = "show me this person's view, read-only".
   if (!me) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <Card>
           <CardHeader>
-            <CardTitle>Who are you?</CardTitle>
+            <CardTitle>
+              {isViewer ? "Whose work would you like to view?" : "Who are you?"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isViewer && (
+              <p className="text-xs text-muted-foreground">
+                You're signed in as <strong>PwC NL/AL</strong> (read-only). Pick
+                a staff member to see their tasks, status, and time logs exactly
+                as they see them. You can also jump straight to{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={() => navigate({ to: "/dashboard" })}
+                >
+                  Dashboard
+                </button>{" "}
+                or{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={() => navigate({ to: "/billing" })}
+                >
+                  Billing
+                </button>
+                .
+              </p>
+            )}
             {staff.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No staff yet. Add team members in{" "}
@@ -136,15 +126,14 @@ function StaffPage() {
                   if (v === "__viewer__") {
                     setRole("viewer");
                     setSelectedId(null);
-                    navigate({ to: "/dashboard" });
                   } else {
-                    setRole("staff");
+                    // Keep current role (staff or viewer); just pick the person.
                     setSelectedId(v);
                   }
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select your name" />
+                  <SelectValue placeholder={isViewer ? "Select a staff member to view" : "Select your name"} />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => (
@@ -152,11 +141,25 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
-                  <SelectItem value="__viewer__">
-                    PwC NL/KS (read-only viewer)
-                  </SelectItem>
+                  {!isViewer && (
+                    <SelectItem value="__viewer__">
+                      PwC NL/AL (read-only viewer)
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+            )}
+            {isViewer && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRole("staff");
+                  setSelectedId(null);
+                }}
+              >
+                Switch user
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -167,8 +170,9 @@ function StaffPage() {
   return (
     <Workspace
       meStaffId={me.id}
+      readOnly={isViewer}
       onSwitch={() => {
-        setRole("staff");
+        // Staff goes back to identity picker; viewer goes back to staff picker.
         setSelectedId(null);
       }}
     />
@@ -178,9 +182,11 @@ function StaffPage() {
 function Workspace({
   meStaffId,
   onSwitch,
+  readOnly = false,
 }: {
   meStaffId: string;
   onSwitch: () => void;
+  readOnly?: boolean;
 }) {
   const qc = useQueryClient();
 
@@ -258,18 +264,24 @@ function Workspace({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
+      {readOnly && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Viewing as <strong>PwC NL/AL</strong> — read-only. You're seeing this
+          staff member's tasks and time logs exactly as they see them.
+        </div>
+      )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Logged in as
+            {readOnly ? "Viewing" : "Logged in as"}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={onSwitch}>
-            Switch user
+            {readOnly ? "Pick another staff" : "Switch user"}
           </Button>
-          <NewTaskDialog meStaffId={meStaffId} />
+          {!readOnly && <NewTaskDialog meStaffId={meStaffId} />}
         </div>
       </div>
 
@@ -378,6 +390,7 @@ function Workspace({
               onStatus={(id, status) => updateStatus.mutate({ id, status })}
               onDelete={(id) => deleteTask.mutate(id)}
               meStaffId={meStaffId}
+              readOnly={readOnly}
             />
           </TabsContent>
         ))}
@@ -394,7 +407,7 @@ function Workspace({
         </TabsContent>
       </Tabs>
 
-      {autoLogTaskId &&
+      {!readOnly && autoLogTaskId &&
         (() => {
           const t = myTasks.find((x) => x.id === autoLogTaskId);
           if (!t) return null;
@@ -427,6 +440,7 @@ function TaskList({
   onStatus,
   onDelete,
   meStaffId,
+  readOnly = false,
 }: {
   tasks: Task[];
   logs: import("@/lib/types").TimeLog[];
@@ -438,6 +452,7 @@ function TaskList({
   onStatus: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   meStaffId: string;
+  readOnly?: boolean;
 }) {
   if (tasks.length === 0) {
     return (
@@ -498,40 +513,46 @@ function TaskList({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Select
-                  value={t.status}
-                  onValueChange={(v) => onStatus(t.id, v as TaskStatus)}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_LABEL[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
-                {me && (
-                  <EditTaskDialog
-                    task={t}
-                    me={me}
-                    holidays={holidays}
-                    leave={leave}
-                    logs={logs}
-                  />
+                {readOnly ? (
+                  <StatusBadge status={t.status} />
+                ) : (
+                  <>
+                    <Select
+                      value={t.status}
+                      onValueChange={(v) => onStatus(t.id, v as TaskStatus)}
+                    >
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {STATUS_LABEL[s]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
+                    {me && (
+                      <EditTaskDialog
+                        task={t}
+                        me={me}
+                        holidays={holidays}
+                        leave={leave}
+                        logs={logs}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm("Delete this task and all its time logs?")) onDelete(t.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (confirm("Delete this task and all its time logs?")) onDelete(t.id);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
               </div>
             </CardContent>
             <div className="border-t border-border">
@@ -746,6 +767,8 @@ function LogTimeDialog({
   useEffect(() => {
     if (!open) return;
     if (mode === "completion") {
+      // Prefill with the task's planned span and full estimated hours.
+      // Staff confirms or edits with what really happened.
       const start = task.actual_start_date
         ? new Date(task.actual_start_date)
         : task.start_date
@@ -753,15 +776,12 @@ function LogTimeDialog({
           : new Date();
       const end = task.actual_end_date
         ? new Date(task.actual_end_date)
-        : new Date();
+        : task.due_date
+          ? new Date(task.due_date)
+          : new Date();
       setStartDate(start);
       setEndDate(end);
-      const alreadyLogged = loggedHoursForTask(task.id, []);
-      const remaining = Math.max(
-        Number(task.estimated_hours) - alreadyLogged,
-        0,
-      );
-      setHours(String(remaining > 0 ? remaining : task.estimated_hours || 1));
+      setHours(String(Number(task.estimated_hours) || 1));
       setNotes("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -829,8 +849,19 @@ function LogTimeDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const isCompletion = mode === "completion";
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        // In completion mode the user MUST confirm or correct the data — no
+        // dismiss, no skip. Only the Confirm button can close the dialog
+        // (it sets open=false after a successful save).
+        if (isCompletion && !v) return;
+        setOpen(v);
+      }}
+    >
       {openProp === undefined && (
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
@@ -839,26 +870,39 @@ function LogTimeDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent>
+      <DialogContent
+        className={isCompletion ? "[&>button]:hidden" : undefined}
+        onPointerDownOutside={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isCompletion) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
-            {mode === "completion"
-              ? `Log completion — ${task.description}`
+            {isCompletion
+              ? `Confirm completion — ${task.description}`
               : `Log time — ${task.description}`}
           </DialogTitle>
         </DialogHeader>
-        {mode === "completion" ? (
+        {isCompletion ? (
           <div className="grid gap-4">
             <p className="text-xs text-muted-foreground">
-              You marked this task as complete. Record when you actually started
-              and finished, and the total hours it took.
+              You marked this task as complete. We've prefilled the planned span
+              and the estimated hours. Confirm if correct, or edit to reflect
+              when you actually started, finished, and the real hours it took.
+              This is required so utilization and billing reflect actual work.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <DateField label="Actual start" value={startDate} onChange={(d) => d && setStartDate(d)} />
-              <DateField label="Actual end" value={endDate} onChange={(d) => d && setEndDate(d)} />
+              <DateField label="Date started" value={startDate} onChange={(d) => d && setStartDate(d)} />
+              <DateField label="Date completed" value={endDate} onChange={(d) => d && setEndDate(d)} />
             </div>
             <div>
-              <Label>Total hours it took</Label>
+              <Label>Actual hours it took</Label>
               <Input
                 type="number"
                 step="0.25"
@@ -913,11 +957,13 @@ function LogTimeDialog({
           </div>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            {mode === "completion" ? "Skip" : "Cancel"}
-          </Button>
+          {!isCompletion && (
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          )}
           <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            {mode === "completion" ? "Save completion" : "Log"}
+            {isCompletion ? "Confirm completion" : "Log"}
           </Button>
         </DialogFooter>
       </DialogContent>

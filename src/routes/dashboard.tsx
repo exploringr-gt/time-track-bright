@@ -234,8 +234,30 @@ function Dashboard() {
                   </InfoTip>
                 </span>
               </TableHead>
-              <TableHead className="text-right">Projected</TableHead>
-              <TableHead className="text-right">Actual</TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Projected
+                  <InfoTip label="What is Projected?">
+                    <strong>Projected utilization</strong> = how full the staff
+                    member's week looks when you add the work they have already
+                    logged plus what's still committed on their active tasks.
+                    Calculated as <em>(Committed + Logged) ÷ Planned</em>.
+                    Anything well over 100% means they're overbooked; well under
+                    means they have spare capacity.
+                  </InfoTip>
+                </span>
+              </TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Actual
+                  <InfoTip label="What is Actual?">
+                    <strong>Actual utilization</strong> = how full the week
+                    really was based only on hours they recorded. Calculated as{" "}
+                    <em>Logged ÷ Planned</em>. This is the number used for
+                    billing and historical utilization reporting.
+                  </InfoTip>
+                </span>
+              </TableHead>
               <TableHead className="text-right">Available</TableHead>
               <TableHead className="text-right">Tasks</TableHead>
               <TableHead className="w-8" />
