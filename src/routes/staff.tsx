@@ -77,51 +77,41 @@ function StaffPage() {
 
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
+  const isViewer = role === "viewer";
 
-  // Viewer (PwC NL/KS) is read-only — bounce to Dashboard.
-  if (role === "viewer") {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16">
-        <Card>
-          <CardHeader>
-            <CardTitle>Read-only viewer (PwC NL/KS)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This view is for staff to log their time. As a viewer, head to the
-              Dashboard or Billing pages to review and export reports.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => navigate({ to: "/dashboard" })}>
-                Go to Dashboard
-              </Button>
-              <Button variant="outline" onClick={() => navigate({ to: "/billing" })}>
-                Go to Billing
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setRole("staff");
-                  setSelectedId(null);
-                }}
-              >
-                Switch user
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // Both staff and viewer first need to pick a person to view.
+  // Staff = "this is me, I'll log time". Viewer = "show me this person's view, read-only".
   if (!me) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <Card>
           <CardHeader>
-            <CardTitle>Who are you?</CardTitle>
+            <CardTitle>
+              {isViewer ? "Whose work would you like to view?" : "Who are you?"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isViewer && (
+              <p className="text-xs text-muted-foreground">
+                You're signed in as <strong>PwC NL/AL</strong> (read-only). Pick
+                a staff member to see their tasks, status, and time logs exactly
+                as they see them. You can also jump straight to{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={() => navigate({ to: "/dashboard" })}
+                >
+                  Dashboard
+                </button>{" "}
+                or{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={() => navigate({ to: "/billing" })}
+                >
+                  Billing
+                </button>
+                .
+              </p>
+            )}
             {staff.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No staff yet. Add team members in{" "}
@@ -136,15 +126,14 @@ function StaffPage() {
                   if (v === "__viewer__") {
                     setRole("viewer");
                     setSelectedId(null);
-                    navigate({ to: "/dashboard" });
                   } else {
-                    setRole("staff");
+                    // Keep current role (staff or viewer); just pick the person.
                     setSelectedId(v);
                   }
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select your name" />
+                  <SelectValue placeholder={isViewer ? "Select a staff member to view" : "Select your name"} />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => (
@@ -152,11 +141,25 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
-                  <SelectItem value="__viewer__">
-                    PwC NL/KS (read-only viewer)
-                  </SelectItem>
+                  {!isViewer && (
+                    <SelectItem value="__viewer__">
+                      PwC NL/AL (read-only viewer)
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+            )}
+            {isViewer && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRole("staff");
+                  setSelectedId(null);
+                }}
+              >
+                Switch user
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -167,8 +170,9 @@ function StaffPage() {
   return (
     <Workspace
       meStaffId={me.id}
+      readOnly={isViewer}
       onSwitch={() => {
-        setRole("staff");
+        // Staff goes back to identity picker; viewer goes back to staff picker.
         setSelectedId(null);
       }}
     />
