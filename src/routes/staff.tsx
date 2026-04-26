@@ -390,6 +390,7 @@ function Workspace({
               onStatus={(id, status) => updateStatus.mutate({ id, status })}
               onDelete={(id) => deleteTask.mutate(id)}
               meStaffId={meStaffId}
+              readOnly={readOnly}
             />
           </TabsContent>
         ))}
@@ -406,7 +407,7 @@ function Workspace({
         </TabsContent>
       </Tabs>
 
-      {autoLogTaskId &&
+      {!readOnly && autoLogTaskId &&
         (() => {
           const t = myTasks.find((x) => x.id === autoLogTaskId);
           if (!t) return null;
