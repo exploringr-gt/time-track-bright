@@ -24,7 +24,8 @@ import {
   validateTaskBoundary,
 } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
-import { useSelectedStaff } from "@/lib/staffStore";
+import { useSelectedStaff, useUserRole } from "@/lib/staffStore";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
