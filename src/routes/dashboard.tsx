@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import {
@@ -33,6 +33,9 @@ import { Button } from "@/components/ui/button";
 import { WeekSelector } from "@/components/WeekSelector";
 import { UtilCell } from "@/components/UtilCell";
 import { StatusBadge } from "@/components/StatusBadge";
+import { InfoTip } from "@/components/InfoTip";
+import { exportXLSX, exportPDF } from "@/lib/exports";
+import { format } from "date-fns";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Tempo" }] }),
