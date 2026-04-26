@@ -109,6 +109,82 @@ function Billing() {
     });
   };
 
+  const monthLabel = format(month, "MMMM yyyy");
+
+  const flatRows = useMemo(() => {
+    const rows: Record<string, unknown>[] = [];
+    for (const c of grouped) {
+      for (const s of c.staff) {
+        for (const t of s.tasks) {
+          rows.push({
+            client: c.clientName,
+            staff: s.staffName,
+            task: t.description,
+            hours: t.hours.toFixed(2),
+          });
+        }
+      }
+    }
+    return rows;
+  }, [grouped]);
+
+  const handleExportXLSX = () => {
+    exportXLSX(`billing-${format(month, "yyyy-MM")}`, [
+      {
+        name: "Detail",
+        columns: [
+          { header: "Client", key: "client", width: 24 },
+          { header: "Staff", key: "staff", width: 22 },
+          { header: "Task", key: "task", width: 50 },
+          { header: "Hours", key: "hours" },
+        ],
+        rows: flatRows,
+      },
+      {
+        name: "Summary by client",
+        columns: [
+          { header: "Client", key: "client", width: 26 },
+          { header: "Hours", key: "hours" },
+        ],
+        rows: grouped.map((c) => ({
+          client: c.clientName,
+          hours: c.total.toFixed(2),
+        })),
+      },
+    ]);
+  };
+
+  const handleExportPDF = () => {
+    exportPDF(
+      `billing-${format(month, "yyyy-MM")}`,
+      "Billing Report",
+      `${monthLabel} · Cancelled tasks excluded · Grand total ${grandTotal.toFixed(2)}h`,
+      [
+        {
+          heading: "Summary by client",
+          columns: [
+            { header: "Client", key: "client" },
+            { header: "Hours", key: "hours" },
+          ],
+          rows: grouped.map((c) => ({
+            client: c.clientName,
+            hours: c.total.toFixed(2) + "h",
+          })),
+        },
+        {
+          heading: "Detail",
+          columns: [
+            { header: "Client", key: "client" },
+            { header: "Staff", key: "staff" },
+            { header: "Task", key: "task" },
+            { header: "Hours", key: "hours" },
+          ],
+          rows: flatRows,
+        },
+      ],
+    );
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
