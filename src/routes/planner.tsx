@@ -14,7 +14,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-re
 import { api, qk } from "@/lib/queries";
 import { committedHours, plannedHours, pct } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
-import { useUserRole } from "@/lib/staffStore";
+import { useUserRole, useSelectedStaff } from "@/lib/staffStore";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeekSelector } from "@/components/WeekSelector";
@@ -54,7 +54,9 @@ function Planner() {
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
   const staff = staffQ.data ?? [];
   const [role] = useUserRole();
+  const [selfId] = useSelectedStaff();
   const readOnly = role === "viewer";
+  const selfName = staff.find((s) => s.id === selfId)?.name;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -72,23 +74,30 @@ function Planner() {
         </div>
       )}
 
+      {!readOnly && selfName && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Signed in as <strong>{selfName}</strong> — you can only mark or remove
+          leave for yourself.
+        </div>
+      )}
+
       <Tabs defaultValue="week">
         <TabsList>
           <TabsTrigger value="week">Weekly grid</TabsTrigger>
           <TabsTrigger value="month">Monthly leave & holidays</TabsTrigger>
         </TabsList>
         <TabsContent value="week" className="mt-4">
-          <WeeklyGrid staff={staff} readOnly={readOnly} />
+          <WeeklyGrid staff={staff} readOnly={readOnly} selfId={selfId} />
         </TabsContent>
         <TabsContent value="month" className="mt-4">
-          <MonthlyView staff={staff} readOnly={readOnly} />
+          <MonthlyView staff={staff} readOnly={readOnly} selfId={selfId} />
         </TabsContent>
       </Tabs>
     </main>
   );
 }
 
-function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
+function WeeklyGrid({ staff, readOnly = false, selfId }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean; selfId: string | null }) {
   const [weekDate, setWeekDate] = useState(new Date());
   const tasksQ = useQuery({ queryKey: qk.tasks, queryFn: api.listTasks });
   const logsQ = useQuery({ queryKey: qk.timeLogs, queryFn: api.listTimeLogs });
@@ -108,7 +117,7 @@ function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <WeekSelector value={weekDate} onChange={setWeekDate} />
-        {!readOnly && <AddLeaveDialog staff={staff} />}
+        {!readOnly && <AddLeaveDialog staff={staff} selfId={selfId} />}
       </div>
 
       <Card className="overflow-x-auto">
@@ -173,7 +182,8 @@ function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").
                       isLeave={!!leaveRow}
                       leaveId={leaveRow?.id}
                       isWork={isWork}
-                      readOnly={readOnly}
+                      readOnly={readOnly || (selfId !== null && s.id !== selfId)}
+                      isOther={!readOnly && selfId !== null && s.id !== selfId}
                     />
                   );
                 })}
@@ -202,6 +212,7 @@ function PlannerCell({
   leaveId,
   isWork,
   readOnly = false,
+  isOther = false,
 }: {
   staffId: string;
   date: Date;
@@ -213,6 +224,7 @@ function PlannerCell({
   leaveId?: string;
   isWork: boolean;
   readOnly?: boolean;
+  isOther?: boolean;
 }) {
   const qc = useQueryClient();
   const addLeave = useMutation({
@@ -240,6 +252,10 @@ function PlannerCell({
     <button
       type="button"
       onClick={() => {
+        if (isOther) {
+          toast.error("You can only mark leave for yourself.");
+          return;
+        }
         if (readOnly) {
           toast.error("Read-only — viewers can't mark leave.");
           return;
@@ -288,7 +304,7 @@ function PlannerCell({
   );
 }
 
-function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
+function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean; selfId: string | null }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
@@ -356,7 +372,9 @@ function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types")
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        {!readOnly && <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />}
+        {!readOnly && (selfId === null || selfId === staffId) && (
+          <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} selfId={selfId} />
+        )}
       </div>
 
       <Card>
@@ -452,7 +470,7 @@ function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types")
               </div>
             )}
             {monthLeave.length > 0 && (
-              <LeaveList leaves={monthLeave} readOnly={readOnly} />
+              <LeaveList leaves={monthLeave} readOnly={readOnly || (selfId !== null && selfId !== staffId)} />
             )}
           </CardContent>
         </Card>
@@ -500,14 +518,19 @@ function AddLeaveDialog({
   staff,
   defaultStaffId,
   defaultDate,
+  selfId,
 }: {
   staff: import("@/lib/types").Staff[];
   defaultStaffId?: string;
   defaultDate?: Date;
+  selfId?: string | null;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [staffId, setStaffId] = useState(defaultStaffId ?? "");
+  // If a real staff identity is signed in, lock the dialog to that person.
+  const lockedStaffId = selfId ?? null;
+  const initialStaffId = lockedStaffId ?? defaultStaffId ?? "";
+  const [staffId, setStaffId] = useState(initialStaffId);
   const [date, setDate] = useState<Date | undefined>(defaultDate);
   const [reason, setReason] = useState("");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
@@ -544,7 +567,7 @@ function AddLeaveDialog({
     <Dialog open={open} onOpenChange={(v) => {
       setOpen(v);
       if (v) {
-        setStaffId(defaultStaffId ?? staffId);
+        setStaffId(lockedStaffId ?? defaultStaffId ?? staffId);
         if (defaultDate) setDate(defaultDate);
       }
     }}>
@@ -560,14 +583,19 @@ function AddLeaveDialog({
         <div className="grid gap-3">
           <div>
             <Label>Staff</Label>
-            <Select value={staffId} onValueChange={setStaffId}>
+            <Select value={staffId} onValueChange={setStaffId} disabled={!!lockedStaffId}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
-                {staff.map((s) => (
+                {(lockedStaffId ? staff.filter((s) => s.id === lockedStaffId) : staff).map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {lockedStaffId && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                You can only mark leave for yourself.
+              </p>
+            )}
           </div>
           <div>
             <Label>Date</Label>
