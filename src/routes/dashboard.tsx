@@ -87,7 +87,7 @@ function Dashboard() {
         actualPct,
         available,
         active: active.length,
-        onHold: onHold.length,
+        
         overdue: overdue.length,
         overrunning: overrunning.length,
       };
