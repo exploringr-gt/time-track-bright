@@ -1,14 +1,12 @@
 export type TaskStatus =
   | "not_started"
   | "in_progress"
-  | "on_hold"
   | "complete"
   | "cancelled";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "not_started",
   "in_progress",
-  "on_hold",
   "complete",
   "cancelled",
 ];
@@ -16,8 +14,7 @@ export const TASK_STATUSES: TaskStatus[] = [
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
-  on_hold: "On hold",
-  complete: "Complete",
+  complete: "Completed",
   cancelled: "Cancelled",
 };
 
