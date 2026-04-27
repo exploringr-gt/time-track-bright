@@ -304,7 +304,7 @@ function PlannerCell({
   );
 }
 
-function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
+function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean; selfId: string | null }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
