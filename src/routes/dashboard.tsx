@@ -131,7 +131,7 @@ function Dashboard() {
           actual: `${r.actualPct.toFixed(0)}%`,
           available: r.available.toFixed(1),
           active: r.active,
-          onHold: r.onHold,
+          
           overdue: r.overdue,
           overrunning: r.overrunning,
         })),
