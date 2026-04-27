@@ -470,7 +470,7 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
               </div>
             )}
             {monthLeave.length > 0 && (
-              <LeaveList leaves={monthLeave} readOnly={readOnly} />
+              <LeaveList leaves={monthLeave} readOnly={readOnly || (selfId !== null && selfId !== staffId)} />
             )}
           </CardContent>
         </Card>
