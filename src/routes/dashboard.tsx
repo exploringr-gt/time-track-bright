@@ -69,7 +69,7 @@ function Dashboard() {
       const available = Math.max(planned - committed - logged, 0);
       const myTasks = tasks.filter((t) => t.staff_id === s.id);
       const active = myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status));
-      const onHold = myTasks.filter((t) => t.status === "on_hold");
+      const onHold: typeof myTasks = [];
       const overdueDate = ymd(new Date());
       const overdue = active.filter(
         (t) => t.due_date && t.due_date < overdueDate,
