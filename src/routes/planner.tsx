@@ -240,6 +240,10 @@ function PlannerCell({
     <button
       type="button"
       onClick={() => {
+        if (readOnly) {
+          toast.error("Read-only — viewers can't mark leave.");
+          return;
+        }
         if (isHoliday) {
           toast.error("That day is a public holiday — no leave needed.");
           return;
@@ -253,10 +257,12 @@ function PlannerCell({
         else addLeave.mutate();
       }}
       className={cn(
-        "border-l border-border p-2 text-left text-xs transition-colors hover:bg-accent/40",
+        "border-l border-border p-2 text-left text-xs transition-colors",
+        !readOnly && "hover:bg-accent/40",
         isHoliday && "bg-status-on-hold/10",
         isLeave && "bg-status-on-hold/15",
         !isWork && "bg-muted/40",
+        readOnly && "cursor-default",
       )}
     >
       {isHoliday ? (
@@ -273,14 +279,16 @@ function PlannerCell({
             </span>
             <span className="text-muted-foreground"> / {planned.toFixed(1)}h</span>
           </p>
-          <p className="text-[10px] text-muted-foreground">click to mark leave</p>
+          {!readOnly && (
+            <p className="text-[10px] text-muted-foreground">click to mark leave</p>
+          )}
         </>
       )}
     </button>
   );
 }
 
-function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
+function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
@@ -348,7 +356,7 @@ function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />
+        {!readOnly && <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />}
       </div>
 
       <Card>
