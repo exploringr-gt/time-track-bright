@@ -288,7 +288,7 @@ function Dashboard() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{r.available.toFixed(1)}h</TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      {r.active}a · {r.onHold}h
+                      {r.active} active
                       {r.overdue > 0 && <span className="ml-1 text-util-over">· {r.overdue} late</span>}
                       {r.overrunning > 0 && <span className="ml-1 text-util-over">· {r.overrunning} over</span>}
                     </TableCell>
