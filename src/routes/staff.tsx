@@ -266,7 +266,8 @@ function Workspace({
   const maxDay = Math.max(dailyTarget, ...dayLogs.map((d) => d.hours));
 
   const grouped: Record<string, Task[]> = {
-    active: myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status)),
+    in_progress: myTasks.filter((t) => t.status === "in_progress"),
+    not_started: myTasks.filter((t) => t.status === "not_started"),
     on_hold: myTasks.filter((t) => t.status === "on_hold"),
     complete: myTasks.filter((t) => t.status === "complete"),
     cancelled: myTasks.filter((t) => t.status === "cancelled"),
@@ -388,9 +389,10 @@ function Workspace({
       </Card>
 
       {/* Tasks */}
-      <Tabs defaultValue="active">
+      <Tabs defaultValue="in_progress">
         <TabsList>
-          <TabsTrigger value="active">Active ({grouped.active.length})</TabsTrigger>
+          <TabsTrigger value="in_progress">In progress ({grouped.in_progress.length})</TabsTrigger>
+          <TabsTrigger value="not_started">Not started ({grouped.not_started.length})</TabsTrigger>
           <TabsTrigger value="on_hold">On hold ({grouped.on_hold.length})</TabsTrigger>
           <TabsTrigger value="complete">Done ({grouped.complete.length})</TabsTrigger>
           <TabsTrigger value="cancelled">
@@ -398,7 +400,7 @@ function Workspace({
           </TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        {(["active", "on_hold", "complete", "cancelled"] as const).map((k) => (
+        {(["in_progress", "not_started", "on_hold", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
             <TaskList
               tasks={grouped[k]}
