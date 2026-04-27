@@ -14,6 +14,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-re
 import { api, qk } from "@/lib/queries";
 import { committedHours, plannedHours, pct } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
+import { useUserRole } from "@/lib/staffStore";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeekSelector } from "@/components/WeekSelector";
@@ -52,6 +53,8 @@ export const Route = createFileRoute("/planner")({
 function Planner() {
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
   const staff = staffQ.data ?? [];
+  const [role] = useUserRole();
+  const readOnly = role === "viewer";
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -62,23 +65,30 @@ function Planner() {
         </p>
       </div>
 
+      {readOnly && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Viewing as <strong>PwC NL/AL</strong> — read-only. You can browse
+          capacity, leave, and holidays but cannot mark or remove leave.
+        </div>
+      )}
+
       <Tabs defaultValue="week">
         <TabsList>
           <TabsTrigger value="week">Weekly grid</TabsTrigger>
           <TabsTrigger value="month">Monthly leave & holidays</TabsTrigger>
         </TabsList>
         <TabsContent value="week" className="mt-4">
-          <WeeklyGrid staff={staff} />
+          <WeeklyGrid staff={staff} readOnly={readOnly} />
         </TabsContent>
         <TabsContent value="month" className="mt-4">
-          <MonthlyView staff={staff} />
+          <MonthlyView staff={staff} readOnly={readOnly} />
         </TabsContent>
       </Tabs>
     </main>
   );
 }
 
-function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
+function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
   const [weekDate, setWeekDate] = useState(new Date());
   const tasksQ = useQuery({ queryKey: qk.tasks, queryFn: api.listTasks });
   const logsQ = useQuery({ queryKey: qk.timeLogs, queryFn: api.listTimeLogs });
@@ -98,7 +108,7 @@ function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <WeekSelector value={weekDate} onChange={setWeekDate} />
-        <AddLeaveDialog staff={staff} />
+        {!readOnly && <AddLeaveDialog staff={staff} />}
       </div>
 
       <Card className="overflow-x-auto">
@@ -163,6 +173,7 @@ function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
                       isLeave={!!leaveRow}
                       leaveId={leaveRow?.id}
                       isWork={isWork}
+                      readOnly={readOnly}
                     />
                   );
                 })}
@@ -190,6 +201,7 @@ function PlannerCell({
   isLeave,
   leaveId,
   isWork,
+  readOnly = false,
 }: {
   staffId: string;
   date: Date;
@@ -200,6 +212,7 @@ function PlannerCell({
   isLeave: boolean;
   leaveId?: string;
   isWork: boolean;
+  readOnly?: boolean;
 }) {
   const qc = useQueryClient();
   const addLeave = useMutation({
