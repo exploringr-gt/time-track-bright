@@ -69,7 +69,7 @@ function Dashboard() {
       const available = Math.max(planned - committed - logged, 0);
       const myTasks = tasks.filter((t) => t.staff_id === s.id);
       const active = myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status));
-      const onHold = myTasks.filter((t) => t.status === "on_hold");
+      
       const overdueDate = ymd(new Date());
       const overdue = active.filter(
         (t) => t.due_date && t.due_date < overdueDate,
@@ -87,7 +87,7 @@ function Dashboard() {
         actualPct,
         available,
         active: active.length,
-        onHold: onHold.length,
+        
         overdue: overdue.length,
         overrunning: overrunning.length,
       };
@@ -104,10 +104,6 @@ function Dashboard() {
       .filter((r) => overrunLevel(Number(r.task.estimated_hours), r.logged) === "over");
   }, [tasks, logs]);
 
-  const allOnHold = useMemo(
-    () => tasks.filter((t) => t.status === "on_hold"),
-    [tasks],
-  );
 
   const handleExportXLSX = () => {
     exportXLSX(`utilization-${ymd(start)}_${ymd(end)}`, [
@@ -122,7 +118,7 @@ function Dashboard() {
           { header: "Actual %", key: "actual" },
           { header: "Remaining (h)", key: "available" },
           { header: "Active tasks", key: "active" },
-          { header: "On hold", key: "onHold" },
+          
           { header: "Overdue", key: "overdue" },
           { header: "Overrunning", key: "overrunning" },
         ],
@@ -135,7 +131,7 @@ function Dashboard() {
           actual: `${r.actualPct.toFixed(0)}%`,
           available: r.available.toFixed(1),
           active: r.active,
-          onHold: r.onHold,
+          
           overdue: r.overdue,
           overrunning: r.overrunning,
         })),
@@ -292,7 +288,7 @@ function Dashboard() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{r.available.toFixed(1)}h</TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      {r.active}a · {r.onHold}h
+                      {r.active} active
                       {r.overdue > 0 && <span className="ml-1 text-util-over">· {r.overdue} late</span>}
                       {r.overrunning > 0 && <span className="ml-1 text-util-over">· {r.overrunning} over</span>}
                     </TableCell>
@@ -323,61 +319,33 @@ function Dashboard() {
         </Table>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Overrunning tasks (&gt;25%)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {allOverruns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">None — nice.</p>
-            ) : (
-              <ul className="space-y-2">
-                {allOverruns.map((r) => {
-                  const s = staff.find((x) => x.id === r.task.staff_id);
-                  return (
-                    <li key={r.task.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
-                      <div>
-                        <p className="text-sm font-medium">{r.task.description}</p>
-                        <p className="text-xs text-muted-foreground">{s?.name}</p>
-                      </div>
-                      <span className="rounded-md bg-util-over/15 px-2 py-0.5 text-xs font-semibold text-util-over tabular-nums">
-                        {r.logged.toFixed(1)}h / {Number(r.task.estimated_hours).toFixed(1)}h
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">On hold</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {allOnHold.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing parked.</p>
-            ) : (
-              <ul className="space-y-2">
-                {allOnHold.map((t) => {
-                  const s = staff.find((x) => x.id === t.staff_id);
-                  return (
-                    <li key={t.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
-                      <div>
-                        <p className="text-sm font-medium">{t.description}</p>
-                        <p className="text-xs text-muted-foreground">{s?.name}</p>
-                      </div>
-                      <StatusBadge status="on_hold" />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Overrunning tasks (&gt;25%)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allOverruns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None — nice.</p>
+          ) : (
+            <ul className="space-y-2">
+              {allOverruns.map((r) => {
+                const s = staff.find((x) => x.id === r.task.staff_id);
+                return (
+                  <li key={r.task.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
+                    <div>
+                      <p className="text-sm font-medium">{r.task.description}</p>
+                      <p className="text-xs text-muted-foreground">{s?.name}</p>
+                    </div>
+                    <span className="rounded-md bg-util-over/15 px-2 py-0.5 text-xs font-semibold text-util-over tabular-nums">
+                      {r.logged.toFixed(1)}h / {Number(r.task.estimated_hours).toFixed(1)}h
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }

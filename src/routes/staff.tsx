@@ -267,7 +267,6 @@ function Workspace({
   const grouped: Record<string, Task[]> = {
     in_progress: myTasks.filter((t) => t.status === "in_progress"),
     not_started: myTasks.filter((t) => t.status === "not_started"),
-    on_hold: myTasks.filter((t) => t.status === "on_hold"),
     complete: myTasks.filter((t) => t.status === "complete"),
     cancelled: myTasks.filter((t) => t.status === "cancelled"),
   };
@@ -392,14 +391,13 @@ function Workspace({
         <TabsList>
           <TabsTrigger value="in_progress">In progress ({grouped.in_progress.length})</TabsTrigger>
           <TabsTrigger value="not_started">Not started ({grouped.not_started.length})</TabsTrigger>
-          <TabsTrigger value="on_hold">On hold ({grouped.on_hold.length})</TabsTrigger>
-          <TabsTrigger value="complete">Done ({grouped.complete.length})</TabsTrigger>
+          <TabsTrigger value="complete">Completed ({grouped.complete.length})</TabsTrigger>
           <TabsTrigger value="cancelled">
             Cancelled ({grouped.cancelled.length})
           </TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        {(["in_progress", "not_started", "on_hold", "complete", "cancelled"] as const).map((k) => (
+        {(["in_progress", "not_started", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
             <TaskList
               tasks={grouped[k]}

@@ -263,12 +263,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      task_status:
-        | "not_started"
-        | "in_progress"
-        | "on_hold"
-        | "complete"
-        | "cancelled"
+      task_status: "not_started" | "in_progress" | "complete" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -396,13 +391,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      task_status: [
-        "not_started",
-        "in_progress",
-        "on_hold",
-        "complete",
-        "cancelled",
-      ],
+      task_status: ["not_started", "in_progress", "complete", "cancelled"],
     },
   },
 } as const
