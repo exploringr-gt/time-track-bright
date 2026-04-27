@@ -323,61 +323,33 @@ function Dashboard() {
         </Table>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Overrunning tasks (&gt;25%)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {allOverruns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">None — nice.</p>
-            ) : (
-              <ul className="space-y-2">
-                {allOverruns.map((r) => {
-                  const s = staff.find((x) => x.id === r.task.staff_id);
-                  return (
-                    <li key={r.task.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
-                      <div>
-                        <p className="text-sm font-medium">{r.task.description}</p>
-                        <p className="text-xs text-muted-foreground">{s?.name}</p>
-                      </div>
-                      <span className="rounded-md bg-util-over/15 px-2 py-0.5 text-xs font-semibold text-util-over tabular-nums">
-                        {r.logged.toFixed(1)}h / {Number(r.task.estimated_hours).toFixed(1)}h
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">On hold</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {allOnHold.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing parked.</p>
-            ) : (
-              <ul className="space-y-2">
-                {allOnHold.map((t) => {
-                  const s = staff.find((x) => x.id === t.staff_id);
-                  return (
-                    <li key={t.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
-                      <div>
-                        <p className="text-sm font-medium">{t.description}</p>
-                        <p className="text-xs text-muted-foreground">{s?.name}</p>
-                      </div>
-                      <StatusBadge status="on_hold" />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Overrunning tasks (&gt;25%)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allOverruns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None — nice.</p>
+          ) : (
+            <ul className="space-y-2">
+              {allOverruns.map((r) => {
+                const s = staff.find((x) => x.id === r.task.staff_id);
+                return (
+                  <li key={r.task.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
+                    <div>
+                      <p className="text-sm font-medium">{r.task.description}</p>
+                      <p className="text-xs text-muted-foreground">{s?.name}</p>
+                    </div>
+                    <span className="rounded-md bg-util-over/15 px-2 py-0.5 text-xs font-semibold text-util-over tabular-nums">
+                      {r.logged.toFixed(1)}h / {Number(r.task.estimated_hours).toFixed(1)}h
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }
