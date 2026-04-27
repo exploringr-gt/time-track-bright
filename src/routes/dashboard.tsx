@@ -118,7 +118,7 @@ function Dashboard() {
           { header: "Actual %", key: "actual" },
           { header: "Remaining (h)", key: "available" },
           { header: "Active tasks", key: "active" },
-          { header: "On hold", key: "onHold" },
+          
           { header: "Overdue", key: "overdue" },
           { header: "Overrunning", key: "overrunning" },
         ],
