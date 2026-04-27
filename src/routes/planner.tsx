@@ -97,7 +97,7 @@ function Planner() {
   );
 }
 
-function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
+function WeeklyGrid({ staff, readOnly = false, selfId }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean; selfId: string | null }) {
   const [weekDate, setWeekDate] = useState(new Date());
   const tasksQ = useQuery({ queryKey: qk.tasks, queryFn: api.listTasks });
   const logsQ = useQuery({ queryKey: qk.timeLogs, queryFn: api.listTimeLogs });
@@ -117,7 +117,7 @@ function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <WeekSelector value={weekDate} onChange={setWeekDate} />
-        {!readOnly && <AddLeaveDialog staff={staff} />}
+        {!readOnly && <AddLeaveDialog staff={staff} selfId={selfId} />}
       </div>
 
       <Card className="overflow-x-auto">
