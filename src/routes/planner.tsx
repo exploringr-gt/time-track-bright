@@ -372,7 +372,9 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        {!readOnly && <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />}
+        {!readOnly && (selfId === null || selfId === staffId) && (
+          <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} selfId={selfId} />
+        )}
       </div>
 
       <Card>
