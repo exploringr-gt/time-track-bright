@@ -212,6 +212,7 @@ function PlannerCell({
   leaveId,
   isWork,
   readOnly = false,
+  isOther = false,
 }: {
   staffId: string;
   date: Date;
@@ -223,6 +224,7 @@ function PlannerCell({
   leaveId?: string;
   isWork: boolean;
   readOnly?: boolean;
+  isOther?: boolean;
 }) {
   const qc = useQueryClient();
   const addLeave = useMutation({
@@ -250,6 +252,10 @@ function PlannerCell({
     <button
       type="button"
       onClick={() => {
+        if (isOther) {
+          toast.error("You can only mark leave for yourself.");
+          return;
+        }
         if (readOnly) {
           toast.error("Read-only — viewers can't mark leave.");
           return;
