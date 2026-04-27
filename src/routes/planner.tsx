@@ -54,7 +54,9 @@ function Planner() {
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
   const staff = staffQ.data ?? [];
   const [role] = useUserRole();
+  const [selfId] = useSelectedStaff();
   const readOnly = role === "viewer";
+  const selfName = staff.find((s) => s.id === selfId)?.name;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -72,16 +74,23 @@ function Planner() {
         </div>
       )}
 
+      {!readOnly && selfName && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Signed in as <strong>{selfName}</strong> — you can only mark or remove
+          leave for yourself.
+        </div>
+      )}
+
       <Tabs defaultValue="week">
         <TabsList>
           <TabsTrigger value="week">Weekly grid</TabsTrigger>
           <TabsTrigger value="month">Monthly leave & holidays</TabsTrigger>
         </TabsList>
         <TabsContent value="week" className="mt-4">
-          <WeeklyGrid staff={staff} readOnly={readOnly} />
+          <WeeklyGrid staff={staff} readOnly={readOnly} selfId={selfId} />
         </TabsContent>
         <TabsContent value="month" className="mt-4">
-          <MonthlyView staff={staff} readOnly={readOnly} />
+          <MonthlyView staff={staff} readOnly={readOnly} selfId={selfId} />
         </TabsContent>
       </Tabs>
     </main>
