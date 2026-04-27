@@ -267,7 +267,6 @@ function Workspace({
   const grouped: Record<string, Task[]> = {
     in_progress: myTasks.filter((t) => t.status === "in_progress"),
     not_started: myTasks.filter((t) => t.status === "not_started"),
-    on_hold: myTasks.filter((t) => t.status === "on_hold"),
     complete: myTasks.filter((t) => t.status === "complete"),
     cancelled: myTasks.filter((t) => t.status === "cancelled"),
   };
