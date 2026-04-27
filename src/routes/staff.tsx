@@ -243,7 +243,11 @@ function Workspace({
   const projectedPct = pct(committed + logged, planned);
   const actualPct = pct(logged, planned);
 
-  const days = daysInWeek(today);
+  // Mon-Fri only for the daily-hours chart
+  const days = daysInWeek(today).filter((d) => {
+    const dow = d.getDay();
+    return dow >= 1 && dow <= 5;
+  });
   const dayLogs = days.map((d) => {
     const k = ymd(d);
     return {
@@ -253,7 +257,13 @@ function Workspace({
         .reduce((s, l) => s + Number(l.hours), 0),
     };
   });
-  const maxDay = Math.max(8, ...dayLogs.map((d) => d.hours));
+  // Anchor the bar height to a sensible daily target so 1h reads visibly
+  // shorter than 6h (instead of normalizing the tallest bar to full height).
+  const dailyTarget =
+    me && me.working_days.length > 0
+      ? me.weekly_target_hours / me.working_days.length
+      : 8;
+  const maxDay = Math.max(dailyTarget, ...dayLogs.map((d) => d.hours));
 
   const grouped: Record<string, Task[]> = {
     active: myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status)),
@@ -290,7 +300,7 @@ function Workspace({
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              This week — planned
+              This week — available
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               {planned.toFixed(1)}h
