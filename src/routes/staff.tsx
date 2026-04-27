@@ -7,7 +7,6 @@ import { CalendarIcon, Plus, Trash2, Clock, Pencil } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import {
-  ACTIVE_STATUSES,
   STATUS_LABEL,
   TASK_STATUSES,
   type Task,
