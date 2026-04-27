@@ -351,27 +351,38 @@ function Workspace({
           <CardTitle className="text-sm font-medium">Daily hours this week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-2 h-28">
-            {dayLogs.map((d) => (
-              <div key={d.date.toISOString()} className="flex flex-1 flex-col items-center gap-1">
-                <div className="flex h-full w-full items-end">
-                  <div
-                    className="w-full rounded-t bg-primary/80 transition-all"
-                    style={{
-                      height: `${(d.hours / maxDay) * 100}%`,
-                      minHeight: d.hours > 0 ? "4px" : "0",
-                    }}
-                    title={`${d.hours.toFixed(1)}h`}
-                  />
+          <div className="flex items-end gap-3 h-28">
+            {dayLogs.map((d) => {
+              const ratio = maxDay > 0 ? d.hours / maxDay : 0;
+              // Bar height scales with hours (so 1h is much shorter than 6h).
+              // Bar width also tapers: lighter days render as a thin line, fuller
+              // days render as a thicker column. Width range: 25%–100% of the cell.
+              const widthPct = d.hours > 0 ? Math.max(25, ratio * 100) : 12;
+              return (
+                <div
+                  key={d.date.toISOString()}
+                  className="flex flex-1 flex-col items-center gap-1"
+                >
+                  <div className="flex h-full w-full items-end justify-center">
+                    <div
+                      className="rounded-t bg-primary/80 transition-all"
+                      style={{
+                        height: `${ratio * 100}%`,
+                        width: `${widthPct}%`,
+                        minHeight: d.hours > 0 ? "4px" : "0",
+                      }}
+                      title={`${d.hours.toFixed(1)}h`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {fmt(d.date, "EEE")}
+                  </span>
+                  <span className="text-[10px] tabular-nums font-medium">
+                    {d.hours > 0 ? d.hours.toFixed(1) : "—"}
+                  </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  {fmt(d.date, "EEE")}
-                </span>
-                <span className="text-[10px] tabular-nums font-medium">
-                  {d.hours > 0 ? d.hours.toFixed(1) : "—"}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
