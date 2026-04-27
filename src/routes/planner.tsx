@@ -567,7 +567,7 @@ function AddLeaveDialog({
     <Dialog open={open} onOpenChange={(v) => {
       setOpen(v);
       if (v) {
-        setStaffId(defaultStaffId ?? staffId);
+        setStaffId(lockedStaffId ?? defaultStaffId ?? staffId);
         if (defaultDate) setDate(defaultDate);
       }
     }}>
@@ -583,14 +583,19 @@ function AddLeaveDialog({
         <div className="grid gap-3">
           <div>
             <Label>Staff</Label>
-            <Select value={staffId} onValueChange={setStaffId}>
+            <Select value={staffId} onValueChange={setStaffId} disabled={!!lockedStaffId}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
-                {staff.map((s) => (
+                {(lockedStaffId ? staff.filter((s) => s.id === lockedStaffId) : staff).map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {lockedStaffId && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                You can only mark leave for yourself.
+              </p>
+            )}
           </div>
           <div>
             <Label>Date</Label>
