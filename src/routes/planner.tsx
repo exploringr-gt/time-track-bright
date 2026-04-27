@@ -518,14 +518,19 @@ function AddLeaveDialog({
   staff,
   defaultStaffId,
   defaultDate,
+  selfId,
 }: {
   staff: import("@/lib/types").Staff[];
   defaultStaffId?: string;
   defaultDate?: Date;
+  selfId?: string | null;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [staffId, setStaffId] = useState(defaultStaffId ?? "");
+  // If a real staff identity is signed in, lock the dialog to that person.
+  const lockedStaffId = selfId ?? null;
+  const initialStaffId = lockedStaffId ?? defaultStaffId ?? "";
+  const [staffId, setStaffId] = useState(initialStaffId);
   const [date, setDate] = useState<Date | undefined>(defaultDate);
   const [reason, setReason] = useState("");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
