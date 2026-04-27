@@ -115,12 +115,12 @@ function Dashboard() {
         name: "Utilization",
         columns: [
           { header: "Staff", key: "staff", width: 24 },
-          { header: "Planned (h)", key: "planned" },
+          { header: "Available (h)", key: "planned" },
           { header: "Committed (h)", key: "committed" },
           { header: "Logged (h)", key: "logged" },
           { header: "Projected %", key: "projected" },
           { header: "Actual %", key: "actual" },
-          { header: "Available (h)", key: "available" },
+          { header: "Remaining (h)", key: "available" },
           { header: "Active tasks", key: "active" },
           { header: "On hold", key: "onHold" },
           { header: "Overdue", key: "overdue" },
@@ -152,12 +152,12 @@ function Dashboard() {
         {
           columns: [
             { header: "Staff", key: "staff" },
-            { header: "Planned", key: "planned" },
+            { header: "Available", key: "planned" },
             { header: "Committed", key: "committed" },
             { header: "Logged", key: "logged" },
             { header: "Projected", key: "projected" },
             { header: "Actual", key: "actual" },
-            { header: "Available", key: "available" },
+            { header: "Remaining", key: "available" },
           ],
           rows: rows.map((r) => ({
             staff: r.staff.name,
@@ -179,7 +179,7 @@ function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Team dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Planned vs committed vs logged for the selected week.
+            Available vs committed vs logged for the selected week.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -202,12 +202,12 @@ function Dashboard() {
               <TableHead className="w-[180px]">Staff</TableHead>
               <TableHead className="text-right">
                 <span className="inline-flex items-center justify-end gap-1">
-                  Planned
-                  <InfoTip label="What is Planned?">
-                    <strong>Planned hours</strong> = the staff member's working
-                    capacity for the week. It is calculated as their weekly
-                    target hours (e.g. 40h) minus any public holidays and
-                    booked leave that fall on their working days.
+                  Available
+                  <InfoTip label="What is Available?">
+                    <strong>Available hours</strong> = the staff member's
+                    working capacity for the week. It is calculated as their
+                    weekly target hours (e.g. 40h) minus any public holidays
+                    and booked leave that fall on their working days.
                   </InfoTip>
                 </span>
               </TableHead>
@@ -241,7 +241,7 @@ function Dashboard() {
                     <strong>Projected utilization</strong> = how full the staff
                     member's week looks when you add the work they have already
                     logged plus what's still committed on their active tasks.
-                    Calculated as <em>(Committed + Logged) ÷ Planned</em>.
+                    Calculated as <em>(Committed + Logged) ÷ Available</em>.
                     Anything well over 100% means they're overbooked; well under
                     means they have spare capacity.
                   </InfoTip>
@@ -253,12 +253,12 @@ function Dashboard() {
                   <InfoTip label="What is Actual?">
                     <strong>Actual utilization</strong> = how full the week
                     really was based only on hours they recorded. Calculated as{" "}
-                    <em>Logged ÷ Planned</em>. This is the number used for
+                    <em>Logged ÷ Available</em>. This is the number used for
                     billing and historical utilization reporting.
                   </InfoTip>
                 </span>
               </TableHead>
-              <TableHead className="text-right">Available</TableHead>
+              <TableHead className="text-right">Remaining</TableHead>
               <TableHead className="text-right">Tasks</TableHead>
               <TableHead className="w-8" />
             </TableRow>

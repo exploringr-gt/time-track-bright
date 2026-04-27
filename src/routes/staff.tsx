@@ -7,7 +7,6 @@ import { CalendarIcon, Plus, Trash2, Clock, Pencil } from "lucide-react";
 
 import { api, qk } from "@/lib/queries";
 import {
-  ACTIVE_STATUSES,
   STATUS_LABEL,
   TASK_STATUSES,
   type Task,
@@ -243,7 +242,11 @@ function Workspace({
   const projectedPct = pct(committed + logged, planned);
   const actualPct = pct(logged, planned);
 
-  const days = daysInWeek(today);
+  // Mon-Fri only for the daily-hours chart
+  const days = daysInWeek(today).filter((d) => {
+    const dow = d.getDay();
+    return dow >= 1 && dow <= 5;
+  });
   const dayLogs = days.map((d) => {
     const k = ymd(d);
     return {
@@ -253,10 +256,17 @@ function Workspace({
         .reduce((s, l) => s + Number(l.hours), 0),
     };
   });
-  const maxDay = Math.max(8, ...dayLogs.map((d) => d.hours));
+  // Anchor the bar height to a sensible daily target so 1h reads visibly
+  // shorter than 6h (instead of normalizing the tallest bar to full height).
+  const dailyTarget =
+    me && me.working_days.length > 0
+      ? me.weekly_target_hours / me.working_days.length
+      : 8;
+  const maxDay = Math.max(dailyTarget, ...dayLogs.map((d) => d.hours));
 
   const grouped: Record<string, Task[]> = {
-    active: myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status)),
+    in_progress: myTasks.filter((t) => t.status === "in_progress"),
+    not_started: myTasks.filter((t) => t.status === "not_started"),
     on_hold: myTasks.filter((t) => t.status === "on_hold"),
     complete: myTasks.filter((t) => t.status === "complete"),
     cancelled: myTasks.filter((t) => t.status === "cancelled"),
@@ -290,7 +300,7 @@ function Workspace({
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              This week — planned
+              This week — available
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               {planned.toFixed(1)}h
@@ -341,35 +351,47 @@ function Workspace({
           <CardTitle className="text-sm font-medium">Daily hours this week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-2 h-28">
-            {dayLogs.map((d) => (
-              <div key={d.date.toISOString()} className="flex flex-1 flex-col items-center gap-1">
-                <div className="flex h-full w-full items-end">
-                  <div
-                    className="w-full rounded-t bg-primary/80 transition-all"
-                    style={{
-                      height: `${(d.hours / maxDay) * 100}%`,
-                      minHeight: d.hours > 0 ? "4px" : "0",
-                    }}
-                    title={`${d.hours.toFixed(1)}h`}
-                  />
+          <div className="flex items-end gap-3 h-28">
+            {dayLogs.map((d) => {
+              const ratio = maxDay > 0 ? d.hours / maxDay : 0;
+              // Bar height scales with hours (so 1h is much shorter than 6h).
+              // Bar width also tapers: lighter days render as a thin line, fuller
+              // days render as a thicker column. Width range: 25%–100% of the cell.
+              const widthPct = d.hours > 0 ? Math.max(25, ratio * 100) : 12;
+              return (
+                <div
+                  key={d.date.toISOString()}
+                  className="flex flex-1 flex-col items-center gap-1"
+                >
+                  <div className="flex h-full w-full items-end justify-center">
+                    <div
+                      className="rounded-t bg-primary/80 transition-all"
+                      style={{
+                        height: `${ratio * 100}%`,
+                        width: `${widthPct}%`,
+                        minHeight: d.hours > 0 ? "4px" : "0",
+                      }}
+                      title={`${d.hours.toFixed(1)}h`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {fmt(d.date, "EEE")}
+                  </span>
+                  <span className="text-[10px] tabular-nums font-medium">
+                    {d.hours > 0 ? d.hours.toFixed(1) : "—"}
+                  </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  {fmt(d.date, "EEE")}
-                </span>
-                <span className="text-[10px] tabular-nums font-medium">
-                  {d.hours > 0 ? d.hours.toFixed(1) : "—"}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
       {/* Tasks */}
-      <Tabs defaultValue="active">
+      <Tabs defaultValue="in_progress">
         <TabsList>
-          <TabsTrigger value="active">Active ({grouped.active.length})</TabsTrigger>
+          <TabsTrigger value="in_progress">In progress ({grouped.in_progress.length})</TabsTrigger>
+          <TabsTrigger value="not_started">Not started ({grouped.not_started.length})</TabsTrigger>
           <TabsTrigger value="on_hold">On hold ({grouped.on_hold.length})</TabsTrigger>
           <TabsTrigger value="complete">Done ({grouped.complete.length})</TabsTrigger>
           <TabsTrigger value="cancelled">
@@ -377,7 +399,7 @@ function Workspace({
           </TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        {(["active", "on_hold", "complete", "cancelled"] as const).map((k) => (
+        {(["in_progress", "not_started", "on_hold", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
             <TaskList
               tasks={grouped[k]}

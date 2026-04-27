@@ -14,6 +14,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-re
 import { api, qk } from "@/lib/queries";
 import { committedHours, plannedHours, pct } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
+import { useUserRole } from "@/lib/staffStore";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeekSelector } from "@/components/WeekSelector";
@@ -52,6 +53,8 @@ export const Route = createFileRoute("/planner")({
 function Planner() {
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
   const staff = staffQ.data ?? [];
+  const [role] = useUserRole();
+  const readOnly = role === "viewer";
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
@@ -62,23 +65,30 @@ function Planner() {
         </p>
       </div>
 
+      {readOnly && (
+        <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          Viewing as <strong>PwC NL/AL</strong> — read-only. You can browse
+          capacity, leave, and holidays but cannot mark or remove leave.
+        </div>
+      )}
+
       <Tabs defaultValue="week">
         <TabsList>
           <TabsTrigger value="week">Weekly grid</TabsTrigger>
           <TabsTrigger value="month">Monthly leave & holidays</TabsTrigger>
         </TabsList>
         <TabsContent value="week" className="mt-4">
-          <WeeklyGrid staff={staff} />
+          <WeeklyGrid staff={staff} readOnly={readOnly} />
         </TabsContent>
         <TabsContent value="month" className="mt-4">
-          <MonthlyView staff={staff} />
+          <MonthlyView staff={staff} readOnly={readOnly} />
         </TabsContent>
       </Tabs>
     </main>
   );
 }
 
-function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
+function WeeklyGrid({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
   const [weekDate, setWeekDate] = useState(new Date());
   const tasksQ = useQuery({ queryKey: qk.tasks, queryFn: api.listTasks });
   const logsQ = useQuery({ queryKey: qk.timeLogs, queryFn: api.listTimeLogs });
@@ -98,7 +108,7 @@ function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <WeekSelector value={weekDate} onChange={setWeekDate} />
-        <AddLeaveDialog staff={staff} />
+        {!readOnly && <AddLeaveDialog staff={staff} />}
       </div>
 
       <Card className="overflow-x-auto">
@@ -163,6 +173,7 @@ function WeeklyGrid({ staff }: { staff: import("@/lib/types").Staff[] }) {
                       isLeave={!!leaveRow}
                       leaveId={leaveRow?.id}
                       isWork={isWork}
+                      readOnly={readOnly}
                     />
                   );
                 })}
@@ -190,6 +201,7 @@ function PlannerCell({
   isLeave,
   leaveId,
   isWork,
+  readOnly = false,
 }: {
   staffId: string;
   date: Date;
@@ -200,6 +212,7 @@ function PlannerCell({
   isLeave: boolean;
   leaveId?: string;
   isWork: boolean;
+  readOnly?: boolean;
 }) {
   const qc = useQueryClient();
   const addLeave = useMutation({
@@ -227,6 +240,10 @@ function PlannerCell({
     <button
       type="button"
       onClick={() => {
+        if (readOnly) {
+          toast.error("Read-only — viewers can't mark leave.");
+          return;
+        }
         if (isHoliday) {
           toast.error("That day is a public holiday — no leave needed.");
           return;
@@ -240,10 +257,12 @@ function PlannerCell({
         else addLeave.mutate();
       }}
       className={cn(
-        "border-l border-border p-2 text-left text-xs transition-colors hover:bg-accent/40",
+        "border-l border-border p-2 text-left text-xs transition-colors",
+        !readOnly && "hover:bg-accent/40",
         isHoliday && "bg-status-on-hold/10",
         isLeave && "bg-status-on-hold/15",
         !isWork && "bg-muted/40",
+        readOnly && "cursor-default",
       )}
     >
       {isHoliday ? (
@@ -260,14 +279,16 @@ function PlannerCell({
             </span>
             <span className="text-muted-foreground"> / {planned.toFixed(1)}h</span>
           </p>
-          <p className="text-[10px] text-muted-foreground">click to mark leave</p>
+          {!readOnly && (
+            <p className="text-[10px] text-muted-foreground">click to mark leave</p>
+          )}
         </>
       )}
     </button>
   );
 }
 
-function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
+function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
@@ -335,7 +356,7 @@ function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />
+        {!readOnly && <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} />}
       </div>
 
       <Card>
@@ -431,7 +452,7 @@ function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
               </div>
             )}
             {monthLeave.length > 0 && (
-              <LeaveList leaves={monthLeave} />
+              <LeaveList leaves={monthLeave} readOnly={readOnly} />
             )}
           </CardContent>
         </Card>
@@ -440,7 +461,7 @@ function MonthlyView({ staff }: { staff: import("@/lib/types").Staff[] }) {
   );
 }
 
-function LeaveList({ leaves }: { leaves: import("@/lib/types").LeaveDay[] }) {
+function LeaveList({ leaves, readOnly = false }: { leaves: import("@/lib/types").LeaveDay[]; readOnly?: boolean }) {
   const qc = useQueryClient();
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteLeave(id),
@@ -463,9 +484,11 @@ function LeaveList({ leaves }: { leaves: import("@/lib/types").LeaveDay[] }) {
                 <p>{format(new Date(l.leave_date), "EEE, MMM d")}</p>
                 {l.reason && <p className="text-xs text-muted-foreground">{l.reason}</p>}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              {!readOnly && (
+                <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
             </li>
           ))}
       </ul>
