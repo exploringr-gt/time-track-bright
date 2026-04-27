@@ -452,7 +452,7 @@ function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types")
               </div>
             )}
             {monthLeave.length > 0 && (
-              <LeaveList leaves={monthLeave} />
+              <LeaveList leaves={monthLeave} readOnly={readOnly} />
             )}
           </CardContent>
         </Card>
@@ -461,7 +461,7 @@ function MonthlyView({ staff, readOnly = false }: { staff: import("@/lib/types")
   );
 }
 
-function LeaveList({ leaves }: { leaves: import("@/lib/types").LeaveDay[] }) {
+function LeaveList({ leaves, readOnly = false }: { leaves: import("@/lib/types").LeaveDay[]; readOnly?: boolean }) {
   const qc = useQueryClient();
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteLeave(id),
@@ -484,9 +484,11 @@ function LeaveList({ leaves }: { leaves: import("@/lib/types").LeaveDay[] }) {
                 <p>{format(new Date(l.leave_date), "EEE, MMM d")}</p>
                 {l.reason && <p className="text-xs text-muted-foreground">{l.reason}</p>}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              {!readOnly && (
+                <Button variant="ghost" size="icon" onClick={() => remove.mutate(l.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
             </li>
           ))}
       </ul>
