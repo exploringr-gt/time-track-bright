@@ -104,10 +104,6 @@ function Dashboard() {
       .filter((r) => overrunLevel(Number(r.task.estimated_hours), r.logged) === "over");
   }, [tasks, logs]);
 
-  const allOnHold = useMemo(
-    () => tasks.filter((t) => t.status === "on_hold"),
-    [tasks],
-  );
 
   const handleExportXLSX = () => {
     exportXLSX(`utilization-${ymd(start)}_${ymd(end)}`, [
