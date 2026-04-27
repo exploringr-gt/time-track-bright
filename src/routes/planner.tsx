@@ -14,7 +14,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-re
 import { api, qk } from "@/lib/queries";
 import { committedHours, plannedHours, pct } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
-import { useUserRole } from "@/lib/staffStore";
+import { useUserRole, useSelectedStaff } from "@/lib/staffStore";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WeekSelector } from "@/components/WeekSelector";
