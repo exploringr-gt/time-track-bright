@@ -182,7 +182,8 @@ function WeeklyGrid({ staff, readOnly = false, selfId }: { staff: import("@/lib/
                       isLeave={!!leaveRow}
                       leaveId={leaveRow?.id}
                       isWork={isWork}
-                      readOnly={readOnly}
+                      readOnly={readOnly || (selfId !== null && s.id !== selfId)}
+                      isOther={!readOnly && selfId !== null && s.id !== selfId}
                     />
                   );
                 })}
