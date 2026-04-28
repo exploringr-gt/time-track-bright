@@ -387,17 +387,17 @@ function Workspace({
       </Card>
 
       {/* Tasks */}
-      <Tabs defaultValue="in_progress">
+      <Tabs defaultValue="not_started">
         <TabsList>
-          <TabsTrigger value="in_progress">In progress ({grouped.in_progress.length})</TabsTrigger>
           <TabsTrigger value="not_started">Not started ({grouped.not_started.length})</TabsTrigger>
+          <TabsTrigger value="in_progress">In progress ({grouped.in_progress.length})</TabsTrigger>
           <TabsTrigger value="complete">Completed ({grouped.complete.length})</TabsTrigger>
           <TabsTrigger value="cancelled">
             Cancelled ({grouped.cancelled.length})
           </TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        {(["in_progress", "not_started", "complete", "cancelled"] as const).map((k) => (
+        {(["not_started", "in_progress", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
             <TaskList
               tasks={grouped[k]}
@@ -499,7 +499,7 @@ function TaskList({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs text-muted-foreground">
-                    {client?.name ?? "?"} · {project?.name ?? "?"}
+                    {client?.name ?? "?"}
                   </p>
                   {(t.start_date || t.due_date) && (
                     <span className="text-xs text-muted-foreground">
