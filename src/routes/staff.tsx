@@ -247,22 +247,35 @@ function Workspace({
     const dow = d.getDay();
     return dow >= 1 && dow <= 5;
   });
+
+  // Build per-day planned hours from active tasks (not started + in progress)
+  // by spreading each task's estimated hours across its working days.
+  const plannedByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!me) return map;
+    const activeTasks = myTasks.filter(
+      (t) => t.status === "not_started" || t.status === "in_progress",
+    );
+    for (const t of activeTasks) {
+      const spread = spreadTaskHours(t, me, holidaysQ.data ?? [], leaveQ.data ?? []);
+      for (const [k, h] of spread) {
+        map.set(k, (map.get(k) ?? 0) + h);
+      }
+    }
+    return map;
+  }, [me, myTasks, holidaysQ.data, leaveQ.data]);
+
+  const DAY_CAPACITY = 8;
   const dayLogs = days.map((d) => {
     const k = ymd(d);
-    return {
-      date: d,
-      hours: myLogs
-        .filter((l) => l.log_date === k)
-        .reduce((s, l) => s + Number(l.hours), 0),
-    };
+    const logged = myLogs
+      .filter((l) => l.log_date === k)
+      .reduce((s, l) => s + Number(l.hours), 0);
+    const planned = plannedByDay.get(k) ?? 0;
+    // Once the staff has logged time for the day, use actual; otherwise show planned.
+    const filled = Math.min(Math.max(logged, planned), DAY_CAPACITY);
+    return { date: d, hours: filled, logged, planned };
   });
-  // Anchor the bar height to a sensible daily target so 1h reads visibly
-  // shorter than 6h (instead of normalizing the tallest bar to full height).
-  const dailyTarget =
-    me && me.working_days.length > 0
-      ? me.weekly_target_hours / me.working_days.length
-      : 8;
-  const maxDay = Math.max(dailyTarget, ...dayLogs.map((d) => d.hours));
 
   const grouped: Record<string, Task[]> = {
     in_progress: myTasks.filter((t) => t.status === "in_progress"),
@@ -350,38 +363,45 @@ function Workspace({
           <CardTitle className="text-sm font-medium">Daily hours this week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-3 h-28">
+          <div className="flex items-end gap-3 h-32">
             {dayLogs.map((d) => {
-              const ratio = maxDay > 0 ? d.hours / maxDay : 0;
-              // Bar height scales with hours (so 1h is much shorter than 6h).
-              // Bar width also tapers: lighter days render as a thin line, fuller
-              // days render as a thicker column. Width range: 25%–100% of the cell.
-              const widthPct = d.hours > 0 ? Math.max(25, ratio * 100) : 12;
+              const fillPct = (d.hours / DAY_CAPACITY) * 100;
+              const isActual = d.logged > 0;
               return (
                 <div
                   key={d.date.toISOString()}
                   className="flex flex-1 flex-col items-center gap-1"
                 >
-                  <div className="flex h-full w-full items-end justify-center">
+                  <div
+                    className="relative w-full flex-1 overflow-hidden rounded-md bg-muted"
+                    title={`${d.hours.toFixed(1)}h of ${DAY_CAPACITY}h${
+                      isActual ? " (logged)" : d.planned > 0 ? " (planned)" : ""
+                    }`}
+                  >
                     <div
-                      className="rounded-t bg-primary/80 transition-all"
-                      style={{
-                        height: `${ratio * 100}%`,
-                        width: `${widthPct}%`,
-                        minHeight: d.hours > 0 ? "4px" : "0",
-                      }}
-                      title={`${d.hours.toFixed(1)}h`}
+                      className="absolute bottom-0 left-0 right-0 bg-emerald-500 transition-all"
+                      style={{ height: `${fillPct}%` }}
                     />
                   </div>
                   <span className="text-[10px] text-muted-foreground">
                     {fmt(d.date, "EEE")}
                   </span>
                   <span className="text-[10px] tabular-nums font-medium">
-                    {d.hours > 0 ? d.hours.toFixed(1) : "—"}
+                    {d.hours > 0 ? `${d.hours.toFixed(1)}h` : "—"}
                   </span>
                 </div>
               );
             })}
+          </div>
+          <div className="mt-3 flex items-center gap-4 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+              Planned / logged hours
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-muted" />
+              Remaining capacity (out of {DAY_CAPACITY}h)
+            </span>
           </div>
         </CardContent>
       </Card>
