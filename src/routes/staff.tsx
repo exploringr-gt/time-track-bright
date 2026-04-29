@@ -363,17 +363,17 @@ function Workspace({
           <CardTitle className="text-sm font-medium">Daily hours this week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-stretch justify-around gap-3 h-40">
+          <div className="flex items-stretch gap-3 h-40">
             {dayLogs.map((d) => {
               const fillPct = (d.hours / DAY_CAPACITY) * 100;
               const isActual = d.logged > 0;
               return (
                 <div
                   key={d.date.toISOString()}
-                  className="flex h-full flex-1 max-w-[6%] flex-col items-center gap-1"
+                  className="flex h-full flex-1 flex-col items-center gap-1"
                 >
                   <div
-                    className="relative w-full flex-1 overflow-hidden rounded-md bg-muted"
+                    className="relative w-1/2 flex-1 overflow-hidden rounded-md bg-muted"
                     title={`${d.hours.toFixed(1)}h of ${DAY_CAPACITY}h${
                       isActual ? " (logged)" : d.planned > 0 ? " (planned)" : ""
                     }`}
