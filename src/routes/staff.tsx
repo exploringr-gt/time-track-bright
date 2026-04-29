@@ -839,6 +839,12 @@ function LogTimeDialog({
         if (!totalHours || totalHours <= 0) {
           throw new Error("Enter the actual hours it took.");
         }
+        const estimated = Number(task.estimated_hours) || 0;
+        if (totalHours > estimated && !notes.trim()) {
+          throw new Error(
+            "Actual hours exceed the estimate — please add notes explaining the overrun.",
+          );
+        }
         // Record as a single time log on the end date.
         const created = await api.createTimeLog({
           task_id: task.id,
