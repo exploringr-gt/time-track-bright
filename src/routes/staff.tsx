@@ -957,10 +957,24 @@ function LogTimeDialog({
                 onChange={(e) => setHours(e.target.value)}
               />
             </div>
-            <div>
-              <Label>Notes (optional)</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-            </div>
+            {(() => {
+              const estimated = Number(task.estimated_hours) || 0;
+              const isOverrun = Number(hours) > estimated && estimated > 0;
+              return (
+                <div>
+                  <Label>
+                    Notes {isOverrun ? <span className="text-destructive">(required — explain the overrun)</span> : "(optional)"}
+                  </Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder={isOverrun ? "Why did this take longer than estimated?" : undefined}
+                    aria-invalid={isOverrun && !notes.trim()}
+                  />
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="grid gap-4">
