@@ -373,7 +373,7 @@ function Workspace({
                   className="flex h-full flex-1 flex-col items-center gap-1"
                 >
                   <div
-                    className="relative w-full flex-1 overflow-hidden rounded-md bg-muted"
+                    className="relative w-1/2 flex-1 overflow-hidden rounded-md bg-muted"
                     title={`${d.hours.toFixed(1)}h of ${DAY_CAPACITY}h${
                       isActual ? " (logged)" : d.planned > 0 ? " (planned)" : ""
                     }`}
@@ -839,6 +839,12 @@ function LogTimeDialog({
         if (!totalHours || totalHours <= 0) {
           throw new Error("Enter the actual hours it took.");
         }
+        const estimated = Number(task.estimated_hours) || 0;
+        if (totalHours > estimated && !notes.trim()) {
+          throw new Error(
+            "Actual hours exceed the estimate — please add notes explaining the overrun.",
+          );
+        }
         // Record as a single time log on the end date.
         const created = await api.createTimeLog({
           task_id: task.id,
@@ -951,10 +957,24 @@ function LogTimeDialog({
                 onChange={(e) => setHours(e.target.value)}
               />
             </div>
-            <div>
-              <Label>Notes (optional)</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-            </div>
+            {(() => {
+              const estimated = Number(task.estimated_hours) || 0;
+              const isOverrun = Number(hours) > estimated && estimated > 0;
+              return (
+                <div>
+                  <Label>
+                    Notes {isOverrun ? <span className="text-destructive">(required — explain the overrun)</span> : "(optional)"}
+                  </Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder={isOverrun ? "Why did this take longer than estimated?" : undefined}
+                    aria-invalid={isOverrun && !notes.trim()}
+                  />
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="grid gap-4">
@@ -1002,9 +1022,19 @@ function LogTimeDialog({
               Cancel
             </Button>
           )}
-          <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            {isCompletion ? "Confirm completion" : "Log"}
-          </Button>
+          {(() => {
+            const estimated = Number(task.estimated_hours) || 0;
+            const overrunNeedsNotes =
+              isCompletion && estimated > 0 && Number(hours) > estimated && !notes.trim();
+            return (
+              <Button
+                onClick={() => log.mutate()}
+                disabled={!hours || log.isPending || overrunNeedsNotes}
+              >
+                {isCompletion ? "Confirm completion" : "Log"}
+              </Button>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>
