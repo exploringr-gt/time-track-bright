@@ -363,7 +363,7 @@ function Workspace({
           <CardTitle className="text-sm font-medium">Daily hours this week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-3 h-32">
+          <div className="flex items-stretch gap-3 h-40">
             {dayLogs.map((d) => {
               const fillPct = (d.hours / DAY_CAPACITY) * 100;
               const isActual = d.logged > 0;
