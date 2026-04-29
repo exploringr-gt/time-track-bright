@@ -1022,9 +1022,19 @@ function LogTimeDialog({
               Cancel
             </Button>
           )}
-          <Button onClick={() => log.mutate()} disabled={!hours || log.isPending}>
-            {isCompletion ? "Confirm completion" : "Log"}
-          </Button>
+          {(() => {
+            const estimated = Number(task.estimated_hours) || 0;
+            const overrunNeedsNotes =
+              isCompletion && estimated > 0 && Number(hours) > estimated && !notes.trim();
+            return (
+              <Button
+                onClick={() => log.mutate()}
+                disabled={!hours || log.isPending || overrunNeedsNotes}
+              >
+                {isCompletion ? "Confirm completion" : "Log"}
+              </Button>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>
