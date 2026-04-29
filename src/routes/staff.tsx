@@ -370,7 +370,7 @@ function Workspace({
               return (
                 <div
                   key={d.date.toISOString()}
-                  className="flex flex-1 flex-col items-center gap-1"
+                  className="flex h-full flex-1 flex-col items-center gap-1"
                 >
                   <div
                     className="relative w-full flex-1 overflow-hidden rounded-md bg-muted"
