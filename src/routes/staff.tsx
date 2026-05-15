@@ -582,7 +582,9 @@ function TaskList({
                         ))}
                       </SelectContent>
                     </Select>
-                    <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
+                    {t.status !== "complete" && (
+                      <LogTimeDialog task={t} meStaffId={meStaffId} onLogged={() => onStatus(t.id, "in_progress")} />
+                    )}
                     {me && (
                       <EditTaskDialog
                         task={t}
