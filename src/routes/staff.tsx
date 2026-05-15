@@ -548,8 +548,15 @@ function TaskList({
                     </span>
                   )}
                   {overrun === "over" && (
-                    <span className="rounded-md bg-util-over/15 px-1.5 py-0.5 text-util-over font-semibold">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-util-over/15 px-1.5 py-0.5 text-util-over font-semibold">
                       Overrun &gt;25%
+                      <InfoTip label="What is an overrun?">
+                        An <strong>overrun</strong> is flagged when the actual
+                        logged hours on a task exceed the original estimate by
+                        more than <strong>25%</strong>. For example, a task
+                        estimated at 4h that ends up taking more than 5h is
+                        marked as overrun.
+                      </InfoTip>
                     </span>
                   )}
                 </div>
