@@ -1350,16 +1350,37 @@ function TaskTimeline({
                       title={`Planned: ${format(planned.start, "MMM d")} – ${format(planned.end, "MMM d")}`}
                     />
                   )}
-                  {actual && (
-                    <div
-                      className="absolute bottom-0 h-3 rounded bg-util-good/70"
-                      style={{
-                        left: `${pctFromStart(actual.start)}%`,
-                        width: `${pctWidth(actual.start, actual.end)}%`,
-                      }}
-                      title={`Actual: ${format(actual.start, "MMM d")} – ${format(actual.end, "MMM d")}`}
-                    />
-                  )}
+                  {actual && (() => {
+                    const est = Number(t.estimated_hours) || 0;
+                    const isOver = est > 0 && logged > est;
+                    const greenRatio = isOver ? Math.min(est / logged, 1) : 1;
+                    const totalLeft = pctFromStart(actual.start);
+                    const totalWidth = pctWidth(actual.start, actual.end);
+                    return (
+                      <>
+                        <div
+                          className="absolute bottom-0 h-3 rounded-l bg-util-good/70"
+                          style={{
+                            left: `${totalLeft}%`,
+                            width: `${totalWidth * greenRatio}%`,
+                            borderTopRightRadius: isOver ? 0 : undefined,
+                            borderBottomRightRadius: isOver ? 0 : undefined,
+                          }}
+                          title={`Actual: ${format(actual.start, "MMM d")} – ${format(actual.end, "MMM d")} · ${logged.toFixed(1)}h logged${isOver ? ` (estimate ${est.toFixed(1)}h)` : ""}`}
+                        />
+                        {isOver && (
+                          <div
+                            className="absolute bottom-0 h-3 rounded-r bg-util-over/80"
+                            style={{
+                              left: `${totalLeft + totalWidth * greenRatio}%`,
+                              width: `${totalWidth * (1 - greenRatio)}%`,
+                            }}
+                            title={`Overrun: ${(logged - est).toFixed(1)}h beyond ${est.toFixed(1)}h estimate`}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
@@ -1376,6 +1397,10 @@ function TaskTimeline({
                     {actual
                       ? `${format(actual.start, "MMM d")} → ${format(actual.end, "MMM d")}`
                       : "—"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-3 rounded bg-util-over/80" />
+                    Overrun (logged &gt; estimate)
                   </span>
                 </div>
               </div>
