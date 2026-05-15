@@ -61,21 +61,49 @@ export function loggedHoursForTask(taskId: string, logs: TimeLog[]): number {
 }
 
 /**
- * Committed hours = remaining estimate for active tasks.
- * "Remaining" = max(estimate - already logged, 0).
- * Only Not started + In progress tasks count.
+ * Committed hours = remaining estimate for active tasks, spread evenly across
+ * the task's working days (start_date → due_date) and counted only for the
+ * working days that fall within [rangeStart, rangeEnd].
+ *
+ * Example: a 4h task spanning Mon–Fri spreads to 0.8h/day. Committed for a
+ * week that covers Wed–Fri = 2.4h. Tasks without a planned span fall back to
+ * their full remaining estimate so they aren't lost from the projection.
  */
 export function committedHours(
   tasks: Task[],
   logs: TimeLog[],
   staffId: string,
+  staff?: Staff,
+  rangeStart?: Date,
+  rangeEnd?: Date,
+  holidays: PublicHoliday[] = [],
+  leave: LeaveDay[] = [],
 ): number {
   const staffTasks = tasks.filter(
     (t) => t.staff_id === staffId && ACTIVE_STATUSES.includes(t.status),
   );
+  const rs = rangeStart ? ymd(rangeStart) : null;
+  const re = rangeEnd ? ymd(rangeEnd) : null;
+
   return staffTasks.reduce((sum, t) => {
     const logged = loggedHoursForTask(t.id, logs);
     const remaining = Math.max(Number(t.estimated_hours) - logged, 0);
+    if (remaining <= 0) return sum;
+
+    if (staff && rs && re && t.start_date && t.due_date) {
+      // Spread the full estimate across working days, then sum only the
+      // portion that falls in the requested range. This makes a multi-week
+      // task contribute proportionally to each week.
+      const spread = spreadTaskHours(t, staff, holidays, leave);
+      let inRange = 0;
+      for (const [k, h] of spread) {
+        if (k >= rs && k <= re) inRange += h;
+      }
+      // Scale by remaining/estimate so already-logged hours don't double-count.
+      const est = Number(t.estimated_hours) || 0;
+      const scale = est > 0 ? remaining / est : 1;
+      return sum + inRange * scale;
+    }
     return sum + remaining;
   }, 0);
 }

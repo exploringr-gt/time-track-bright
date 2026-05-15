@@ -63,7 +63,7 @@ function Dashboard() {
     return staff.map((s) => {
       const planned = plannedHours(s, start, end, holidaysQ.data ?? [], leaveQ.data ?? []);
       const logged = loggedHoursForStaff(s.id, logs, start, end);
-      const committed = committedHours(tasks, logs, s.id);
+      const committed = committedHours(tasks, logs, s.id, s, start, end, holidaysQ.data ?? [], leaveQ.data ?? []);
       const projectedPct = pct(committed + logged, planned);
       const actualPct = pct(logged, planned);
       const available = Math.max(planned - committed - logged, 0);
@@ -211,12 +211,18 @@ function Dashboard() {
                 <span className="inline-flex items-center justify-end gap-1">
                   Committed
                   <InfoTip label="What is Committed?">
-                    <strong>Committed hours</strong> = the remaining estimated
-                    work on this staff member's active tasks (Not started + In
-                    progress). For each active task it is{" "}
-                    <em>max(estimated&nbsp;−&nbsp;already&nbsp;logged, 0)</em>,
-                    summed across all active tasks. It does not depend on the
-                    selected week.
+                    <strong>Committed hours</strong> = remaining estimated work
+                    on this staff member's active tasks (Not started + In
+                    progress), spread evenly across the working days between
+                    each task's start and due date, then summed for the days
+                    that fall in the selected week.
+                    <br />
+                    <br />
+                    Example: a 4h task scheduled 15 May → 20 May (4 working
+                    days) commits 1h/day. If the task is finished early on
+                    18 May, the 4h shift to the days actually worked
+                    (15 &amp; 18 May → 2h each) and move from Committed into
+                    Logged.
                   </InfoTip>
                 </span>
               </TableHead>
@@ -384,6 +390,12 @@ function DailyDrillDown({
     { offset: 1, label: "Next week" },
   ];
 
+  const today = ymd(new Date());
+  const myTasks = tasks.filter((t) => t.staff_id === staff.id);
+  const activeTasks = myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status));
+  const lateTasks = activeTasks.filter((t) => t.due_date && t.due_date < today);
+  const onTrackTasks = activeTasks.filter((t) => !t.due_date || t.due_date >= today);
+
   return (
     <div className="p-4 space-y-5">
       {weeks.map(({ offset, label }) => {
@@ -451,6 +463,93 @@ function DailyDrillDown({
           </div>
         );
       })}
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Active task summary
+        </p>
+        {activeTasks.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No active tasks.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <p className="mb-1 text-[11px] font-semibold text-util-over">
+                Late ({lateTasks.length})
+              </p>
+              {lateTasks.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">None</p>
+              ) : (
+                <ul className="space-y-1">
+                  {lateTasks.map((t) => {
+                    const proj = projects.find((p) => p.id === t.project_id);
+                    const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
+                    const lg = loggedHoursForTask(t.id, logs);
+                    return (
+                      <li
+                        key={t.id}
+                        className="flex items-start justify-between gap-2 rounded-md border border-util-over/30 bg-util-over/5 p-2 text-[11px]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {t.description}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {cli?.name ?? "?"} · due {t.due_date ? fmt(new Date(t.due_date), "MMM d") : "—"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <StatusBadge status={t.status} />
+                          <span className="tabular-nums text-muted-foreground">
+                            {lg.toFixed(1)}/{Number(t.estimated_hours).toFixed(1)}h
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-semibold text-foreground">
+                Active ({onTrackTasks.length})
+              </p>
+              {onTrackTasks.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">None</p>
+              ) : (
+                <ul className="space-y-1">
+                  {onTrackTasks.map((t) => {
+                    const proj = projects.find((p) => p.id === t.project_id);
+                    const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
+                    const lg = loggedHoursForTask(t.id, logs);
+                    return (
+                      <li
+                        key={t.id}
+                        className="flex items-start justify-between gap-2 rounded-md border border-border bg-card p-2 text-[11px]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {t.description}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {cli?.name ?? "?"}
+                            {t.due_date && ` · due ${fmt(new Date(t.due_date), "MMM d")}`}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <StatusBadge status={t.status} />
+                          <span className="tabular-nums text-muted-foreground">
+                            {lg.toFixed(1)}/{Number(t.estimated_hours).toFixed(1)}h
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
