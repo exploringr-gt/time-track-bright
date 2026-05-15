@@ -238,7 +238,9 @@ function Workspace({
     ? plannedHours(me, start, end, holidaysQ.data ?? [], leaveQ.data ?? [])
     : 0;
   const logged = loggedHoursForStaff(meStaffId, myLogs, start, end);
-  const committed = committedHours(myTasks, myLogs, meStaffId);
+  const committed = me
+    ? committedHours(myTasks, myLogs, meStaffId, me, start, end, holidaysQ.data ?? [], leaveQ.data ?? [])
+    : 0;
   const projectedPct = pct(committed + logged, planned);
   const actualPct = pct(logged, planned);
 
