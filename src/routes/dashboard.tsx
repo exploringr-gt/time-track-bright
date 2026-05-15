@@ -211,12 +211,18 @@ function Dashboard() {
                 <span className="inline-flex items-center justify-end gap-1">
                   Committed
                   <InfoTip label="What is Committed?">
-                    <strong>Committed hours</strong> = the remaining estimated
-                    work on this staff member's active tasks (Not started + In
-                    progress). For each active task it is{" "}
-                    <em>max(estimated&nbsp;−&nbsp;already&nbsp;logged, 0)</em>,
-                    summed across all active tasks. It does not depend on the
-                    selected week.
+                    <strong>Committed hours</strong> = remaining estimated work
+                    on this staff member's active tasks (Not started + In
+                    progress), spread evenly across the working days between
+                    each task's start and due date, then summed for the days
+                    that fall in the selected week.
+                    <br />
+                    <br />
+                    Example: a 4h task scheduled 15 May → 20 May (4 working
+                    days) commits 1h/day. If the task is finished early on
+                    18 May, the 4h shift to the days actually worked
+                    (15 &amp; 18 May → 2h each) and move from Committed into
+                    Logged.
                   </InfoTip>
                 </span>
               </TableHead>
