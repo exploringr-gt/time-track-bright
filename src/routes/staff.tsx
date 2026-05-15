@@ -56,6 +56,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UtilBar, UtilCell } from "@/components/UtilCell";
+import { InfoTip } from "@/components/InfoTip";
 
 export const Route = createFileRoute("/staff")({
   head: () => ({
