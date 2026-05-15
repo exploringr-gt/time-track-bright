@@ -63,7 +63,7 @@ function Dashboard() {
     return staff.map((s) => {
       const planned = plannedHours(s, start, end, holidaysQ.data ?? [], leaveQ.data ?? []);
       const logged = loggedHoursForStaff(s.id, logs, start, end);
-      const committed = committedHours(tasks, logs, s.id);
+      const committed = committedHours(tasks, logs, s.id, s, start, end, holidaysQ.data ?? [], leaveQ.data ?? []);
       const projectedPct = pct(committed + logged, planned);
       const actualPct = pct(logged, planned);
       const available = Math.max(planned - committed - logged, 0);
