@@ -20,7 +20,7 @@ import {
 } from "@/lib/calc";
 import { daysInWeek, fmt, shiftWeek, weekRange, ymd } from "@/lib/dates";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -94,15 +94,8 @@ function Dashboard() {
     });
   }, [staff, tasks, logs, start, end, holidaysQ.data, leaveQ.data]);
 
-  const allOverruns = useMemo(() => {
-    return tasks
-      .filter((t) => ACTIVE_STATUSES.includes(t.status))
-      .map((t) => ({
-        task: t,
-        logged: loggedHoursForTask(t.id, logs),
-      }))
-      .filter((r) => overrunLevel(Number(r.task.estimated_hours), r.logged) === "over");
-  }, [tasks, logs]);
+
+
 
 
   const handleExportXLSX = () => {
