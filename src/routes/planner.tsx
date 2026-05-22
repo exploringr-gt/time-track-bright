@@ -499,7 +499,7 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
 }
 
 
-function LeaveList({ leaves, readOnly = false }: { leaves: import("@/lib/types").LeaveDay[]; readOnly?: boolean }) {
+function LeaveList({ leaves, readOnly = false, hideHeader = false }: { leaves: import("@/lib/types").LeaveDay[]; readOnly?: boolean; hideHeader?: boolean }) {
   const qc = useQueryClient();
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteLeave(id),
@@ -511,7 +511,8 @@ function LeaveList({ leaves, readOnly = false }: { leaves: import("@/lib/types")
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Leave</p>
+      {!hideHeader && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Leave</p>}
+
       <ul className="mt-1 divide-y divide-border rounded-md border border-border">
         {leaves
           .slice()
