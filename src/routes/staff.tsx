@@ -418,7 +418,6 @@ function Workspace({
           <TabsTrigger value="cancelled">
             Cancelled ({grouped.cancelled.length})
           </TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
         {(["not_started", "in_progress", "complete", "cancelled"] as const).map((k) => (
           <TabsContent key={k} value={k} className="mt-4">
@@ -437,17 +436,6 @@ function Workspace({
             />
           </TabsContent>
         ))}
-        <TabsContent value="timeline" className="mt-4">
-          <TaskTimeline
-            tasks={myTasks}
-            logs={myLogs}
-            clients={clientsQ.data ?? []}
-            projects={projectsQ.data ?? []}
-            holidays={holidaysQ.data ?? []}
-            leave={leaveQ.data ?? []}
-            me={me ?? null}
-          />
-        </TabsContent>
       </Tabs>
 
       {!readOnly && autoLogTaskId &&
