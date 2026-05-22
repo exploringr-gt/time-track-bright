@@ -261,14 +261,14 @@ function Dashboard() {
                 </span>
               </TableHead>
               <TableHead className="text-right">Remaining</TableHead>
-              <TableHead className="text-right">Tasks</TableHead>
               <TableHead className="w-8" />
+
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                   No staff yet. Add some in Settings.
                 </TableCell>
               </TableRow>
@@ -293,18 +293,14 @@ function Dashboard() {
                       <UtilCell pct={r.actualPct} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{r.available.toFixed(1)}h</TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">
-                      {r.active} active
-                      {r.overdue > 0 && <span className="ml-1 text-util-over">· {r.overdue} late</span>}
-                      {r.overrunning > 0 && <span className="ml-1 text-util-over">· {r.overrunning} over</span>}
-                    </TableCell>
                     <TableCell>
                       {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </TableCell>
                   </TableRow>
                   {isOpen && (
                     <TableRow key={`${r.staff.id}-detail`}>
-                      <TableCell colSpan={9} className="bg-muted/30 p-0">
+                      <TableCell colSpan={8} className="bg-muted/30 p-0">
+
                         <DailyDrillDown
                           staff={r.staff}
                           weekDate={weekDate}
@@ -325,33 +321,8 @@ function Dashboard() {
         </Table>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Overrunning tasks (&gt;25%)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allOverruns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None — nice.</p>
-          ) : (
-            <ul className="space-y-2">
-              {allOverruns.map((r) => {
-                const s = staff.find((x) => x.id === r.task.staff_id);
-                return (
-                  <li key={r.task.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-2">
-                    <div>
-                      <p className="text-sm font-medium">{r.task.description}</p>
-                      <p className="text-xs text-muted-foreground">{s?.name}</p>
-                    </div>
-                    <span className="rounded-md bg-util-over/15 px-2 py-0.5 text-xs font-semibold text-util-over tabular-nums">
-                      {r.logged.toFixed(1)}h / {Number(r.task.estimated_hours).toFixed(1)}h
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+
+
     </main>
   );
 }
