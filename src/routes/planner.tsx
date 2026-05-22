@@ -447,7 +447,7 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
               <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Public holiday
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-status-in-progress/20" /> Staff on leave
+              <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Staff on leave
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-3 w-3 rounded bg-muted" /> Weekend
