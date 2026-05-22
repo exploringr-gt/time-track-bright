@@ -401,39 +401,41 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
               const hol = holidayMap.get(k);
               const dayLeave = leaveByDay.get(k) ?? [];
               const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              const leaveNames = dayLeave
+                .map((l) => staffById.get(l.staff_id)?.name.split(" ")[0])
+                .filter(Boolean) as string[];
+              const allOnLeave = leaveNames.length >= staff.length && leaveNames.length > 0;
+              const leaveLabel =
+                leaveNames.length === 0
+                  ? ""
+                  : leaveNames.length === 1
+                    ? `${leaveNames[0]} on leave`
+                    : `${leaveNames.slice(0, -1).join(", ")} and ${leaveNames[leaveNames.length - 1]} on leave`;
 
               return (
                 <div
                   key={k}
                   className={cn(
-                    "min-h-[80px] rounded-md border border-border p-1 text-left",
+                    "relative min-h-[80px] overflow-hidden rounded-md border border-border p-1 text-left",
                     hol && "bg-status-on-hold/15 border-status-on-hold/40",
+                    !hol && allOnLeave && "bg-status-on-hold/15 border-status-on-hold/40",
                     !hol && isWeekend && "bg-muted/40",
                   )}
-                  title={hol ? `Holiday: ${hol.name}` : undefined}
+                  title={hol ? `Holiday: ${hol.name}` : leaveLabel || undefined}
                 >
-                  <p className="text-[11px] font-semibold tabular-nums">{format(d, "d")}</p>
+                  {!hol && !allOnLeave && leaveNames.length > 0 && (
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-status-on-hold/15" />
+                  )}
+                  <p className="relative text-[11px] font-semibold tabular-nums">{format(d, "d")}</p>
                   {hol && (
-                    <p className="mt-0.5 truncate text-[9px] font-medium text-status-on-hold">
+                    <p className="relative mt-0.5 truncate text-[9px] font-medium text-status-on-hold">
                       {hol.name}
                     </p>
                   )}
-                  {dayLeave.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-0.5">
-                      {dayLeave.map((l) => {
-                        const s = staffById.get(l.staff_id);
-                        if (!s) return null;
-                        return (
-                          <span
-                            key={l.id}
-                            title={`${s.name} on leave${l.reason ? `: ${l.reason}` : ""}`}
-                            className="rounded-sm bg-status-in-progress/20 px-1 py-0.5 text-[9px] font-semibold text-status-in-progress"
-                          >
-                            {initials(s.name)}
-                          </span>
-                        );
-                      })}
-                    </div>
+                  {leaveNames.length > 0 && (
+                    <p className="relative mt-0.5 text-[9px] font-medium leading-tight text-status-on-hold">
+                      {leaveLabel}
+                    </p>
                   )}
                 </div>
               );
@@ -445,7 +447,7 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
               <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Public holiday
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-status-in-progress/20" /> Staff on leave
+              <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Staff on leave
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-3 w-3 rounded bg-muted" /> Weekend
