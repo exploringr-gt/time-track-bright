@@ -306,16 +306,9 @@ function PlannerCell({
 
 function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib/types").Staff[]; readOnly?: boolean; selfId: string | null }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
-  const [staffId, setStaffId] = useState<string>(staff[0]?.id ?? "");
   const holidaysQ = useQuery({ queryKey: qk.holidays, queryFn: api.listHolidays });
   const leaveQ = useQuery({ queryKey: qk.leave, queryFn: api.listLeave });
 
-  // Keep a sane default once staff loads
-  if (!staffId && staff.length > 0) {
-    setStaffId(staff[0].id);
-  }
-
-  const me = staff.find((s) => s.id === staffId) ?? null;
   const holidays = holidaysQ.data ?? [];
   const leave = leaveQ.data ?? [];
 
@@ -326,11 +319,9 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
     [monthStart, monthEnd],
   );
 
-  // Pad the grid so the first row aligns with weekday columns (Mon-start)
-  const leadingBlanks = (monthStart.getDay() + 6) % 7; // Mon=0..Sun=6
+  const leadingBlanks = (monthStart.getDay() + 6) % 7;
 
-  const myLeave = me ? leave.filter((l) => l.staff_id === me.id) : [];
-  const monthLeave = myLeave.filter(
+  const monthLeave = leave.filter(
     (l) => l.leave_date >= ymd(monthStart) && l.leave_date <= ymd(monthEnd),
   );
   const monthHolidays = holidays.filter(
@@ -338,7 +329,25 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
   );
 
   const holidayMap = new Map(holidays.map((h) => [h.holiday_date, h]));
-  const leaveMap = new Map(myLeave.map((l) => [l.leave_date, l]));
+  const leaveByDay = useMemo(() => {
+    const m = new Map<string, { id: string; staff_id: string; reason?: string | null }[]>();
+    for (const l of leave) {
+      const arr = m.get(l.leave_date) ?? [];
+      arr.push(l);
+      m.set(l.leave_date, arr);
+    }
+    return m;
+  }, [leave]);
+
+  const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
 
   if (staff.length === 0) {
     return (
@@ -353,16 +362,6 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={staffId} onValueChange={setStaffId}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Pick staff" />
-          </SelectTrigger>
-          <SelectContent>
-            {staff.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
           <Button variant="ghost" size="sm" onClick={() => setMonth(addMonths(month, -1))}>
             <ChevronLeft className="h-4 w-4" />
@@ -372,15 +371,15 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        {!readOnly && (selfId === null || selfId === staffId) && (
-          <AddLeaveDialog staff={staff} defaultStaffId={staffId} defaultDate={month} selfId={selfId} />
+        {!readOnly && (
+          <AddLeaveDialog staff={staff} defaultDate={month} selfId={selfId} />
         )}
       </div>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            {me?.name} — {format(month, "MMMM yyyy")}
+            Team — {format(month, "MMMM yyyy")}
           </CardTitle>
           <p className="text-xs text-muted-foreground tabular-nums">
             {monthLeave.length} leave day{monthLeave.length === 1 ? "" : "s"} ·{" "}
@@ -395,25 +394,23 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
           </div>
           <div className="mt-1 grid grid-cols-7 gap-1">
             {Array.from({ length: leadingBlanks }).map((_, i) => (
-              <div key={`b-${i}`} className="aspect-square rounded-md bg-transparent" />
+              <div key={`b-${i}`} className="min-h-[80px] rounded-md bg-transparent" />
             ))}
             {days.map((d) => {
               const k = ymd(d);
               const hol = holidayMap.get(k);
-              const lv = leaveMap.get(k);
+              const dayLeave = leaveByDay.get(k) ?? [];
               const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-              const isWork = me?.working_days.includes(d.getDay()) ?? false;
 
               return (
                 <div
                   key={k}
                   className={cn(
-                    "aspect-square rounded-md border border-border p-1 text-left",
+                    "min-h-[80px] rounded-md border border-border p-1 text-left",
                     hol && "bg-status-on-hold/15 border-status-on-hold/40",
-                    lv && !hol && "bg-status-in-progress/15 border-status-in-progress/40",
-                    !isWork && !hol && !lv && "bg-muted/40",
+                    !hol && isWeekend && "bg-muted/40",
                   )}
-                  title={hol ? `Holiday: ${hol.name}` : lv ? `Leave${lv.reason ? `: ${lv.reason}` : ""}` : undefined}
+                  title={hol ? `Holiday: ${hol.name}` : undefined}
                 >
                   <p className="text-[11px] font-semibold tabular-nums">{format(d, "d")}</p>
                   {hol && (
@@ -421,13 +418,22 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
                       {hol.name}
                     </p>
                   )}
-                  {lv && !hol && (
-                    <p className="mt-0.5 truncate text-[9px] font-medium text-status-in-progress">
-                      Leave
-                    </p>
-                  )}
-                  {!isWork && !hol && !lv && isWeekend && (
-                    <p className="mt-0.5 text-[9px] text-muted-foreground">Off</p>
+                  {dayLeave.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-0.5">
+                      {dayLeave.map((l) => {
+                        const s = staffById.get(l.staff_id);
+                        if (!s) return null;
+                        return (
+                          <span
+                            key={l.id}
+                            title={`${s.name} on leave${l.reason ? `: ${l.reason}` : ""}`}
+                            className="rounded-sm bg-status-in-progress/20 px-1 py-0.5 text-[9px] font-semibold text-status-in-progress"
+                          >
+                            {initials(s.name)}
+                          </span>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               );
@@ -439,10 +445,10 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
               <span className="h-3 w-3 rounded border border-status-on-hold/40 bg-status-on-hold/15" /> Public holiday
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded border border-status-in-progress/40 bg-status-in-progress/15" /> Leave
+              <span className="h-3 w-3 rounded bg-status-in-progress/20" /> Staff on leave
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-muted" /> Non-working day
+              <span className="h-3 w-3 rounded bg-muted" /> Weekend
             </span>
           </div>
         </CardContent>
@@ -469,15 +475,29 @@ function MonthlyView({ staff, readOnly = false, selfId }: { staff: import("@/lib
                 </ul>
               </div>
             )}
-            {monthLeave.length > 0 && (
-              <LeaveList leaves={monthLeave} readOnly={readOnly || (selfId !== null && selfId !== staffId)} />
-            )}
+            {staff.map((s) => {
+              const sLeave = monthLeave.filter((l) => l.staff_id === s.id);
+              if (sLeave.length === 0) return null;
+              return (
+                <div key={s.id}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {s.name} — Leave
+                  </p>
+                  <LeaveList
+                    leaves={sLeave}
+                    readOnly={readOnly || (selfId !== null && selfId !== s.id)}
+                    hideHeader
+                  />
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
+
 
 function LeaveList({ leaves, readOnly = false }: { leaves: import("@/lib/types").LeaveDay[]; readOnly?: boolean }) {
   const qc = useQueryClient();
