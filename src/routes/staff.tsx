@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UtilBar, UtilCell } from "@/components/UtilCell";
 import { InfoTip } from "@/components/InfoTip";
+import { WeekSelector } from "@/components/WeekSelector";
 
 export const Route = createFileRoute("/staff")({
   head: () => ({
