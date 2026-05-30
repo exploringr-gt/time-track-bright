@@ -354,7 +354,7 @@ function DailyDrillDown({
     { offset: 1, label: "Next week" },
   ];
 
-  const myTasks = tasks.filter((t) => t.staff_id === staff.id);
+  
 
   return (
     <div className="p-4 space-y-5">
