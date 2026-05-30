@@ -71,47 +71,31 @@ function StaffPage() {
   const navigate = useNavigate();
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
 
-  if (staffQ.isLoading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
-  }
-
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
   const isViewer = role === "viewer";
 
-  // Both staff and viewer first need to pick a person to view.
-  // Staff = "this is me, I'll log time". Viewer = "show me this person's view, read-only".
+  // Manager (viewer) should land directly in a workspace with a staff switcher,
+  // not on an intermediate picker page. Auto-select the first staff member.
+  useEffect(() => {
+    if (isViewer && !me && staff.length > 0) {
+      setSelectedId(staff[0].id);
+    }
+  }, [isViewer, me, staff, setSelectedId]);
+
+  if (staffQ.isLoading) {
+    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  // Staff identity picker (Manager flow auto-selects above, so this is staff only).
   if (!me) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <Card>
           <CardHeader>
-            <CardTitle>
-              {isViewer ? "Whose work would you like to view?" : "Who are you?"}
-            </CardTitle>
+            <CardTitle>Who are you?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isViewer && (
-              <p className="text-xs text-muted-foreground">
-                You're signed in as <strong>PwC NL/AL</strong> (read-only). Pick
-                a staff member to see their tasks, status, and time logs exactly
-                as they see them. You can also jump straight to{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={() => navigate({ to: "/dashboard" })}
-                >
-                  Dashboard
-                </button>{" "}
-                or{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={() => navigate({ to: "/billing" })}
-                >
-                  Billing
-                </button>
-                .
-              </p>
-            )}
             {staff.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No staff yet. Add team members in{" "}
@@ -127,13 +111,12 @@ function StaffPage() {
                     setRole("viewer");
                     setSelectedId(null);
                   } else {
-                    // Keep current role (staff or viewer); just pick the person.
                     setSelectedId(v);
                   }
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={isViewer ? "Select a staff member to view" : "Select your name"} />
+                  <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => (
@@ -141,25 +124,9 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
-                  {!isViewer && (
-                    <SelectItem value="__viewer__">
-                      PwC NL/AL (read-only viewer)
-                    </SelectItem>
-                  )}
+                  <SelectItem value="__viewer__">Manager (read-only)</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-            {isViewer && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setRole("staff");
-                  setSelectedId(null);
-                }}
-              >
-                Switch user
-              </Button>
             )}
           </CardContent>
         </Card>
@@ -171,8 +138,10 @@ function StaffPage() {
     <Workspace
       meStaffId={me.id}
       readOnly={isViewer}
-      onSwitch={() => {
-        // Staff goes back to identity picker; viewer goes back to staff picker.
+      staffList={staff}
+      onSwitchStaff={(id) => setSelectedId(id)}
+      onSwitchUser={() => {
+        setRole("staff");
         setSelectedId(null);
       }}
     />
