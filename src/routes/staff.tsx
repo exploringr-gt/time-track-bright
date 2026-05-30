@@ -262,24 +262,43 @@ function Workspace({
     <main className="mx-auto max-w-6xl px-4 py-6">
       {readOnly && (
         <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
-          Viewing as <strong>PwC NL/AL</strong> — read-only. You're seeing this
+          Viewing as <strong>Manager</strong> — read-only. You're seeing this
           staff member's tasks and time logs exactly as they see them.
         </div>
       )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            {readOnly ? "Viewing" : "Logged in as"}
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {readOnly ? "Viewing" : "Logged in as"}
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
+          </div>
+          {readOnly ? (
+            <Select value={meStaffId} onValueChange={onSwitchStaff}>
+              <SelectTrigger className="h-8 w-[200px]">
+                <SelectValue placeholder="Pick another staff" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={onSwitchUser}>
+              Switch user
+            </Button>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onSwitch}>
-            {readOnly ? "Pick another staff" : "Switch user"}
-          </Button>
+        <div className="flex items-center gap-2">
+          <WeekSelector value={weekDate} onChange={setWeekDate} />
           {!readOnly && <NewTaskDialog meStaffId={meStaffId} />}
         </div>
       </div>
+
 
       {/* My week */}
       <div className="mb-6 grid gap-4 md:grid-cols-3">
