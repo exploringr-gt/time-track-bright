@@ -20,7 +20,7 @@ const TILES = [
   {
     to: "/staff",
     title: "Log my time",
-    description: "Pick your name (or sign in as PwC NL/AL read-only viewer) and log hours.",
+    description: "Sign in as yourself and log hours (Manager user is read-only and should not be used by staff).",
     icon: Clock,
     accent: "text-status-in-progress",
   },

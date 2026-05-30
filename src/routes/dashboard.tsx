@@ -32,7 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WeekSelector } from "@/components/WeekSelector";
 import { UtilCell } from "@/components/UtilCell";
-import { StatusBadge } from "@/components/StatusBadge";
+
 import { InfoTip } from "@/components/InfoTip";
 import { exportXLSX, exportPDF } from "@/lib/exports";
 import { format } from "date-fns";
@@ -354,11 +354,7 @@ function DailyDrillDown({
     { offset: 1, label: "Next week" },
   ];
 
-  const today = ymd(new Date());
-  const myTasks = tasks.filter((t) => t.staff_id === staff.id);
-  const activeTasks = myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status));
-  const lateTasks = activeTasks.filter((t) => t.due_date && t.due_date < today);
-  const onTrackTasks = activeTasks.filter((t) => !t.due_date || t.due_date >= today);
+  
 
   return (
     <div className="p-4 space-y-5">
@@ -428,92 +424,6 @@ function DailyDrillDown({
         );
       })}
 
-      <div className="border-t border-border pt-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Active task summary
-        </p>
-        {activeTasks.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No active tasks.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <p className="mb-1 text-[11px] font-semibold text-util-over">
-                Late ({lateTasks.length})
-              </p>
-              {lateTasks.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">None</p>
-              ) : (
-                <ul className="space-y-1">
-                  {lateTasks.map((t) => {
-                    const proj = projects.find((p) => p.id === t.project_id);
-                    const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
-                    const lg = loggedHoursForTask(t.id, logs);
-                    return (
-                      <li
-                        key={t.id}
-                        className="flex items-start justify-between gap-2 rounded-md border border-util-over/30 bg-util-over/5 p-2 text-[11px]"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
-                            {t.description}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {cli?.name ?? "?"} · due {t.due_date ? fmt(new Date(t.due_date), "MMM d") : "—"}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge status={t.status} />
-                          <span className="tabular-nums text-muted-foreground">
-                            {lg.toFixed(1)}/{Number(t.estimated_hours).toFixed(1)}h
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-semibold text-foreground">
-                Active ({onTrackTasks.length})
-              </p>
-              {onTrackTasks.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">None</p>
-              ) : (
-                <ul className="space-y-1">
-                  {onTrackTasks.map((t) => {
-                    const proj = projects.find((p) => p.id === t.project_id);
-                    const cli = proj ? clients.find((c) => c.id === proj.client_id) : null;
-                    const lg = loggedHoursForTask(t.id, logs);
-                    return (
-                      <li
-                        key={t.id}
-                        className="flex items-start justify-between gap-2 rounded-md border border-border bg-card p-2 text-[11px]"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
-                            {t.description}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {cli?.name ?? "?"}
-                            {t.due_date && ` · due ${fmt(new Date(t.due_date), "MMM d")}`}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge status={t.status} />
-                          <span className="tabular-nums text-muted-foreground">
-                            {lg.toFixed(1)}/{Number(t.estimated_hours).toFixed(1)}h
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

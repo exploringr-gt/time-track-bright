@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/StatusBadge";
 import { UtilBar, UtilCell } from "@/components/UtilCell";
 import { InfoTip } from "@/components/InfoTip";
+import { WeekSelector } from "@/components/WeekSelector";
 
 export const Route = createFileRoute("/staff")({
   head: () => ({
@@ -71,47 +72,31 @@ function StaffPage() {
   const navigate = useNavigate();
   const staffQ = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
 
-  if (staffQ.isLoading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
-  }
-
   const staff = staffQ.data ?? [];
   const me = staff.find((s) => s.id === selectedId) ?? null;
   const isViewer = role === "viewer";
 
-  // Both staff and viewer first need to pick a person to view.
-  // Staff = "this is me, I'll log time". Viewer = "show me this person's view, read-only".
+  // Manager (viewer) should land directly in a workspace with a staff switcher,
+  // not on an intermediate picker page. Auto-select the first staff member.
+  useEffect(() => {
+    if (isViewer && !me && staff.length > 0) {
+      setSelectedId(staff[0].id);
+    }
+  }, [isViewer, me, staff, setSelectedId]);
+
+  if (staffQ.isLoading) {
+    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  // Staff identity picker (Manager flow auto-selects above, so this is staff only).
   if (!me) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <Card>
           <CardHeader>
-            <CardTitle>
-              {isViewer ? "Whose work would you like to view?" : "Who are you?"}
-            </CardTitle>
+            <CardTitle>Who are you?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isViewer && (
-              <p className="text-xs text-muted-foreground">
-                You're signed in as <strong>PwC NL/AL</strong> (read-only). Pick
-                a staff member to see their tasks, status, and time logs exactly
-                as they see them. You can also jump straight to{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={() => navigate({ to: "/dashboard" })}
-                >
-                  Dashboard
-                </button>{" "}
-                or{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={() => navigate({ to: "/billing" })}
-                >
-                  Billing
-                </button>
-                .
-              </p>
-            )}
             {staff.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No staff yet. Add team members in{" "}
@@ -127,13 +112,12 @@ function StaffPage() {
                     setRole("viewer");
                     setSelectedId(null);
                   } else {
-                    // Keep current role (staff or viewer); just pick the person.
                     setSelectedId(v);
                   }
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={isViewer ? "Select a staff member to view" : "Select your name"} />
+                  <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((s) => (
@@ -141,25 +125,9 @@ function StaffPage() {
                       {s.name}
                     </SelectItem>
                   ))}
-                  {!isViewer && (
-                    <SelectItem value="__viewer__">
-                      PwC NL/AL (read-only viewer)
-                    </SelectItem>
-                  )}
+                  <SelectItem value="__viewer__">Manager (read-only)</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-            {isViewer && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setRole("staff");
-                  setSelectedId(null);
-                }}
-              >
-                Switch user
-              </Button>
             )}
           </CardContent>
         </Card>
@@ -171,8 +139,10 @@ function StaffPage() {
     <Workspace
       meStaffId={me.id}
       readOnly={isViewer}
-      onSwitch={() => {
-        // Staff goes back to identity picker; viewer goes back to staff picker.
+      staffList={staff}
+      onSwitchStaff={(id) => setSelectedId(id)}
+      onSwitchUser={() => {
+        setRole("staff");
         setSelectedId(null);
       }}
     />
@@ -181,11 +151,15 @@ function StaffPage() {
 
 function Workspace({
   meStaffId,
-  onSwitch,
+  onSwitchUser,
+  onSwitchStaff,
+  staffList,
   readOnly = false,
 }: {
   meStaffId: string;
-  onSwitch: () => void;
+  onSwitchUser: () => void;
+  onSwitchStaff: (id: string) => void;
+  staffList: import("@/lib/types").Staff[];
   readOnly?: boolean;
 }) {
   const qc = useQueryClient();
@@ -202,9 +176,8 @@ function Workspace({
   const myTasks = (tasksQ.data ?? []).filter((t) => t.staff_id === meStaffId);
   const myLogs = (logsQ.data ?? []).filter((l) => l.staff_id === meStaffId);
 
-  // When a task is moved to "complete", auto-open the Log dialog so the staff
-  // member can record actual start/end dates and the hours it really took.
   const [autoLogTaskId, setAutoLogTaskId] = useState<string | null>(null);
+  const [weekDate, setWeekDate] = useState(new Date());
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
@@ -232,9 +205,8 @@ function Workspace({
   });
 
 
-  // My week stats
-  const today = new Date();
-  const { start, end } = weekRange(today);
+  // Week stats — driven by the WeekSelector so the user can navigate.
+  const { start, end } = weekRange(weekDate);
   const planned = me
     ? plannedHours(me, start, end, holidaysQ.data ?? [], leaveQ.data ?? [])
     : 0;
@@ -246,7 +218,7 @@ function Workspace({
   const actualPct = pct(logged, planned);
 
   // Mon-Fri only for the daily-hours chart
-  const days = daysInWeek(today).filter((d) => {
+  const days = daysInWeek(weekDate).filter((d) => {
     const dow = d.getDay();
     return dow >= 1 && dow <= 5;
   });
@@ -291,24 +263,43 @@ function Workspace({
     <main className="mx-auto max-w-6xl px-4 py-6">
       {readOnly && (
         <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
-          Viewing as <strong>PwC NL/AL</strong> — read-only. You're seeing this
+          Viewing as <strong>Manager</strong> — read-only. You're seeing this
           staff member's tasks and time logs exactly as they see them.
         </div>
       )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            {readOnly ? "Viewing" : "Logged in as"}
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {readOnly ? "Viewing" : "Logged in as"}
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">{me?.name}</h1>
+          </div>
+          {readOnly ? (
+            <Select value={meStaffId} onValueChange={onSwitchStaff}>
+              <SelectTrigger className="h-8 w-[200px]">
+                <SelectValue placeholder="Pick another staff" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={onSwitchUser}>
+              Switch user
+            </Button>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onSwitch}>
-            {readOnly ? "Pick another staff" : "Switch user"}
-          </Button>
+        <div className="flex items-center gap-2">
+          <WeekSelector value={weekDate} onChange={setWeekDate} />
           {!readOnly && <NewTaskDialog meStaffId={meStaffId} />}
         </div>
       </div>
+
 
       {/* My week */}
       <div className="mb-6 grid gap-4 md:grid-cols-3">
