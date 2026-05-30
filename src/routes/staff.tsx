@@ -150,11 +150,15 @@ function StaffPage() {
 
 function Workspace({
   meStaffId,
-  onSwitch,
+  onSwitchUser,
+  onSwitchStaff,
+  staffList,
   readOnly = false,
 }: {
   meStaffId: string;
-  onSwitch: () => void;
+  onSwitchUser: () => void;
+  onSwitchStaff: (id: string) => void;
+  staffList: import("@/lib/types").Staff[];
   readOnly?: boolean;
 }) {
   const qc = useQueryClient();
@@ -171,9 +175,8 @@ function Workspace({
   const myTasks = (tasksQ.data ?? []).filter((t) => t.staff_id === meStaffId);
   const myLogs = (logsQ.data ?? []).filter((l) => l.staff_id === meStaffId);
 
-  // When a task is moved to "complete", auto-open the Log dialog so the staff
-  // member can record actual start/end dates and the hours it really took.
   const [autoLogTaskId, setAutoLogTaskId] = useState<string | null>(null);
+  const [weekDate, setWeekDate] = useState(new Date());
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
@@ -201,9 +204,8 @@ function Workspace({
   });
 
 
-  // My week stats
-  const today = new Date();
-  const { start, end } = weekRange(today);
+  // Week stats — driven by the WeekSelector so the user can navigate.
+  const { start, end } = weekRange(weekDate);
   const planned = me
     ? plannedHours(me, start, end, holidaysQ.data ?? [], leaveQ.data ?? [])
     : 0;
@@ -215,7 +217,7 @@ function Workspace({
   const actualPct = pct(logged, planned);
 
   // Mon-Fri only for the daily-hours chart
-  const days = daysInWeek(today).filter((d) => {
+  const days = daysInWeek(weekDate).filter((d) => {
     const dow = d.getDay();
     return dow >= 1 && dow <= 5;
   });
