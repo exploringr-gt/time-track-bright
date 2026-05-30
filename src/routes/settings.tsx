@@ -124,6 +124,8 @@ function ClientsSection() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: qk.clients, queryFn: api.listClients });
   const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   const create = useMutation({
     mutationFn: () => api.createClient(name.trim()),
@@ -131,6 +133,16 @@ function ClientsSection() {
       qc.invalidateQueries({ queryKey: qk.clients });
       setName("");
       toast.success("Client added");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const update = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.updateClient(id, { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.clients });
+      setEditingId(null);
+      toast.success("Client updated");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -158,13 +170,51 @@ function ClientsSection() {
             <li className="p-4 text-center text-sm text-muted-foreground">No clients yet.</li>
           )}
           {(q.data ?? []).map((c) => (
-            <li key={c.id} className="flex items-center justify-between p-3">
-              <p className="text-sm font-medium">{c.name}</p>
-              <Button variant="ghost" size="icon" onClick={() => {
-                if (confirm(`Delete ${c.name}? This removes their projects and tasks.`)) remove.mutate(c.id);
-              }}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+            <li key={c.id} className="flex items-center justify-between gap-2 p-3">
+              {editingId === c.id ? (
+                <>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-8"
+                    autoFocus
+                  />
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!editName.trim() || update.isPending}
+                      onClick={() => update.mutate({ id: c.id, name: editName.trim() })}
+                    >
+                      <Check className="h-4 w-4 text-status-complete" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setEditingId(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">{c.name}</p>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingId(c.id);
+                        setEditName(c.name);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      if (confirm(`Delete ${c.name}? This removes their projects and tasks.`)) remove.mutate(c.id);
+                    }}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </li>
           ))}
         </ul>
