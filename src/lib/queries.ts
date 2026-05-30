@@ -41,6 +41,10 @@ export const api = {
     unwrap<Client[]>(
       supabase.from("clients").insert({ name }).select() as never,
     ),
+  updateClient: (id: string, patch: Partial<Client>) =>
+    unwrap<Client[]>(
+      supabase.from("clients").update(patch).eq("id", id).select() as never,
+    ),
   deleteClient: (id: string) =>
     unwrap(supabase.from("clients").delete().eq("id", id) as never),
 
