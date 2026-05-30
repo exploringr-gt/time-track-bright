@@ -354,11 +354,7 @@ function DailyDrillDown({
     { offset: 1, label: "Next week" },
   ];
 
-  const today = ymd(new Date());
   const myTasks = tasks.filter((t) => t.staff_id === staff.id);
-  const activeTasks = myTasks.filter((t) => ACTIVE_STATUSES.includes(t.status));
-  const lateTasks = activeTasks.filter((t) => t.due_date && t.due_date < today);
-  const onTrackTasks = activeTasks.filter((t) => !t.due_date || t.due_date >= today);
 
   return (
     <div className="p-4 space-y-5">
