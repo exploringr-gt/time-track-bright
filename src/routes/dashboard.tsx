@@ -32,7 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WeekSelector } from "@/components/WeekSelector";
 import { UtilCell } from "@/components/UtilCell";
-import { StatusBadge } from "@/components/StatusBadge";
+
 import { InfoTip } from "@/components/InfoTip";
 import { exportXLSX, exportPDF } from "@/lib/exports";
 import { format } from "date-fns";
