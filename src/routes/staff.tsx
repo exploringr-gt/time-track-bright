@@ -847,14 +847,41 @@ function LogTimeDialog({
             "Actual hours exceed the estimate — please add notes explaining the overrun.",
           );
         }
-        // Record as a single time log on the end date.
-        const created = await api.createTimeLog({
-          task_id: task.id,
-          staff_id: meStaffId,
-          log_date: endKey,
-          hours: totalHours,
-          notes: notes || "Logged on completion",
-        });
+        // Spread total hours across working days in the span (skipping
+        // holidays/leave). Falls back to a single log on the end date if no
+        // staff context is available or no working days are in range.
+        const workingDays = me
+          ? workingDaysInRange(me, startDate, endDate, holidays ?? [], leave ?? [])
+              .filter((d) => d.hours > 0)
+              .map((d) => ymd(d.date))
+          : [];
+        let created;
+        if (workingDays.length > 0) {
+          const perDay = totalHours / workingDays.length;
+          const rounded = Math.round(perDay * 100) / 100;
+          // Distribute, fixing rounding drift on the last day.
+          let remaining = totalHours;
+          for (let i = 0; i < workingDays.length; i++) {
+            const isLast = i === workingDays.length - 1;
+            const h = isLast ? Math.round(remaining * 100) / 100 : rounded;
+            remaining -= rounded;
+            created = await api.createTimeLog({
+              task_id: task.id,
+              staff_id: meStaffId,
+              log_date: workingDays[i],
+              hours: h,
+              notes: notes || "Logged on completion",
+            });
+          }
+        } else {
+          created = await api.createTimeLog({
+            task_id: task.id,
+            staff_id: meStaffId,
+            log_date: endKey,
+            hours: totalHours,
+            notes: notes || "Logged on completion",
+          });
+        }
         // Stamp the task's actual span exactly.
         await api.updateTask(task.id, {
           actual_start_date: startKey,
