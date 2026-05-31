@@ -69,8 +69,7 @@ function Planner() {
 
       {readOnly && (
         <div className="mb-4 rounded-md border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
-          Viewing as <strong>PwC NL/AL</strong> — read-only. You can browse
-          capacity, leave, and holidays but cannot mark or remove leave.
+          Viewing as <strong>Manager</strong> — read-only.
         </div>
       )}
 
