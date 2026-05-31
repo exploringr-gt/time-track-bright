@@ -152,6 +152,7 @@ function TopNav() {
 
 function RoleBadge() {
   const [isViewer, setIsViewer] = useState(false);
+  const navigate = useNavigate();
   useEffect(() => {
     try {
       setIsViewer(window.localStorage.getItem("tt.userRole") === "viewer");
@@ -160,9 +161,25 @@ function RoleBadge() {
     }
   }, []);
   if (!isViewer) return null;
+  const switchUser = () => {
+    try {
+      window.localStorage.removeItem("tt.userRole");
+      window.localStorage.removeItem("tt.selectedStaffId");
+    } catch {
+      // ignore
+    }
+    navigate({ to: "/staff" });
+    // Force re-evaluation of role-aware screens
+    if (typeof window !== "undefined") window.location.reload();
+  };
   return (
-    <span className="rounded-full border border-border bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground">
-      PwC NL/AL · read-only
-    </span>
+    <div className="flex items-center gap-2">
+      <span className="rounded-full border border-border bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground">
+        Manager
+      </span>
+      <Button variant="ghost" size="sm" onClick={switchUser}>
+        Switch user
+      </Button>
+    </div>
   );
 }
