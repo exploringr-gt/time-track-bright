@@ -441,8 +441,16 @@ function Workspace({
               meStaffId={meStaffId}
               mode="completion"
               open={true}
+              me={me ?? null}
+              holidays={holidaysQ.data ?? []}
+              leave={leaveQ.data ?? []}
               onOpenChange={(o) => {
                 if (!o) setAutoLogTaskId(null);
+              }}
+              onCancel={() => {
+                // Revert the just-applied completion so the user is back where
+                // they started (task active, no completion log recorded).
+                updateStatus.mutate({ id: t.id, status: "in_progress" });
               }}
               onLogged={() => setAutoLogTaskId(null)}
             />
