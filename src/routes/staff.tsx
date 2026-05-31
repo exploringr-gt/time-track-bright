@@ -21,6 +21,7 @@ import {
   plannedHours,
   spreadTaskHours,
   validateTaskBoundary,
+  workingDaysInRange,
 } from "@/lib/calc";
 import { daysInWeek, fmt, weekRange, ymd } from "@/lib/dates";
 import { useSelectedStaff, useUserRole } from "@/lib/staffStore";
