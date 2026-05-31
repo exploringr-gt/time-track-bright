@@ -1046,11 +1046,15 @@ function LogTimeDialog({
           </div>
         )}
         <DialogFooter>
-          {!isCompletion && (
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (isCompletion) onCancel?.();
+              setOpen(false);
+            }}
+          >
+            Cancel
+          </Button>
           {(() => {
             const estimated = Number(task.estimated_hours) || 0;
             const overrunNeedsNotes =
