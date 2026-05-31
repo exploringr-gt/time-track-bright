@@ -766,6 +766,10 @@ function LogTimeDialog({
   open: openProp,
   onOpenChange,
   mode = "log",
+  me,
+  holidays,
+  leave,
+  onCancel,
 }: {
   task: Task;
   meStaffId: string;
@@ -776,9 +780,15 @@ function LogTimeDialog({
    * "log" — user clicked the Log button to record one entry.
    * "completion" — auto-opened when the task was just marked complete; we
    * collect the actual start/end dates of the whole task and the total
-   * hours it took, recording it as a single time-log on the end date.
+   * hours it took, then spread the hours evenly across working days in
+   * that span (skipping holidays/leave).
    */
   mode?: "log" | "completion";
+  me?: import("@/lib/types").Staff | null;
+  holidays?: import("@/lib/types").PublicHoliday[];
+  leave?: import("@/lib/types").LeaveDay[];
+  /** Completion mode only: called when the user clicks Cancel to revert. */
+  onCancel?: () => void;
 }) {
   const qc = useQueryClient();
   const [internalOpen, setInternalOpen] = useState(false);
