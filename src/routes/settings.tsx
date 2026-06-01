@@ -53,6 +53,8 @@ function StaffSection() {
   const q = useQuery({ queryKey: qk.staff, queryFn: api.listStaff });
   const [name, setName] = useState("");
   const [hours, setHours] = useState("40");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   const create = useMutation({
     mutationFn: () =>
@@ -62,6 +64,17 @@ function StaffSection() {
       setName("");
       setHours("40");
       toast.success("Staff added");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.updateStaff(id, { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.staff });
+      setEditingId(null);
+      toast.success("Staff updated");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -100,18 +113,61 @@ function StaffSection() {
             <li className="p-4 text-center text-sm text-muted-foreground">No staff yet.</li>
           )}
           {(q.data ?? []).map((s) => (
-            <li key={s.id} className="flex items-center justify-between p-3">
-              <div>
-                <p className="text-sm font-medium">{s.name}</p>
-                <p className="text-xs text-muted-foreground tabular-nums">
-                  {Number(s.weekly_target_hours).toFixed(0)}h/week
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => {
-                if (confirm(`Delete ${s.name}? This removes their tasks and time logs.`)) remove.mutate(s.id);
-              }}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+            <li key={s.id} className="flex items-center justify-between gap-2 p-3">
+              {editingId === s.id ? (
+                <>
+                  <div className="flex-1">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="h-8"
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground tabular-nums mt-1">
+                      {Number(s.weekly_target_hours).toFixed(0)}h/week
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!editName.trim() || update.isPending}
+                      onClick={() => update.mutate({ id: s.id, name: editName.trim() })}
+                    >
+                      <Check className="h-4 w-4 text-status-complete" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setEditingId(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-sm font-medium">{s.name}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {Number(s.weekly_target_hours).toFixed(0)}h/week
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingId(s.id);
+                        setEditName(s.name);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      if (confirm(`Delete ${s.name}? This removes their tasks and time logs.`)) remove.mutate(s.id);
+                    }}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </li>
           ))}
         </ul>
